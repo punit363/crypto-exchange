@@ -1,0 +1,18 @@
+{
+  "name": "api-crypto-exchange",
+  "version": "1.0.0",
+  "description": "api server for crypto exchange project",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "dev": "npm run build && npm run start"
+  },
+  "author": "punit",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "redis": "^5.5.6"
+  }
+}
