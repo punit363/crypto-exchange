@@ -14,15 +14,21 @@ const createRedisClient = async () => {
 const pushOrderToQueue = async (order: any) => {
   const client = await createRedisClient();
   await client.lPush("order", JSON.stringify(order));
-  console.log("Enqueued:", order);
 };
 
 const getOrderResponse = async (order_id: string) => {
   const subscriber = createClient();
   await subscriber.connect();
-  await subscriber.subscribe(order_id, (order_response) => {
-    subscriber.unsubscribe(order_id);
-    console.log(order_response); // 'message'
+  return new Promise((resolve, reject) => {
+    subscriber.subscribe(order_id, async (message) => {
+      try {
+        await subscriber.unsubscribe(order_id);
+        await subscriber.quit();
+        resolve(JSON.parse(message));
+      } catch (err) {
+        reject(err);
+      }
+    });
   });
 };
 
