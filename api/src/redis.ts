@@ -17,4 +17,13 @@ const pushOrderToQueue = async (order: any) => {
   console.log("Enqueued:", order);
 };
 
-export { createRedisClient, pushOrderToQueue };
+const getOrderResponse = async (order_id: string) => {
+  const subscriber = createClient();
+  await subscriber.connect();
+  await subscriber.subscribe(order_id, (order_response) => {
+    subscriber.unsubscribe(order_id);
+    console.log(order_response); // 'message'
+  });
+};
+
+export { createRedisClient, pushOrderToQueue, getOrderResponse };
