@@ -1,8 +1,4 @@
-import {
-  createRedisClient,
-  getOrderResponse,
-  pushOrderToQueue,
-} from "../redis";
+import { getOrderResponse, pushOrderToQueue } from "../redis";
 import { generateOrderId } from "../utils";
 
 const placeOrder = async (req: any, res: any) => {
