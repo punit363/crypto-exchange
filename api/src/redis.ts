@@ -1,35 +1,48 @@
-import { createClient } from "redis";
+import { createClient, RedisClientType } from "redis";
+import { OrderToEngine } from "./types/types";
 
-let client: any;
+class RedisHandler {
+  private client!: RedisClientType;
+  private subscriber!: RedisClientType;
+  private static instance: RedisHandler;
 
-const createRedisClient = async () => {
-  if (!client) {
-    client = createClient();
-    client.on("error", (err: any) => console.log("Redis Client Error", err));
-    await client.connect();
-  }
-  return client;
-};
+  init = async () => {
+    this.client = createClient();
+    this.subscriber = createClient();
 
-const pushOrderToQueue = async (order: any) => {
-  const client = await createRedisClient();
-  await client.lPush("order", JSON.stringify(order));
-};
+    await this.client.connect();
+    await this.subscriber.connect();
 
-const getOrderResponse = async (order_id: string) => {
-  const subscriber = createClient();
-  await subscriber.connect();
-  return new Promise((resolve, reject) => {
-    subscriber.subscribe(order_id, async (message) => {
-      try {
-        await subscriber.unsubscribe(order_id);
-        await subscriber.quit();
-        resolve(JSON.parse(message));
-      } catch (err) {
-        reject(err);
-      }
+    this.client.on("error", (err: any) =>
+      console.error("Redis Client Error", err)
+    );
+    this.subscriber.on("error", (err: any) =>
+      console.error("Redis Publisher Error", err)
+    );
+  };
+
+  static createInstance = async () => {
+    if (!RedisHandler.instance) {
+      RedisHandler.instance = new RedisHandler();
+      await RedisHandler.instance.init();
+    }
+    return RedisHandler.instance;
+  };
+
+  sendAndAwait = async (order: OrderToEngine) => {
+    await this.client.lPush("order", JSON.stringify(order));
+    return new Promise((resolve, reject) => {
+      this.subscriber.subscribe(order.order_id, async (message) => {
+        try {
+          await this.subscriber.unsubscribe(order.order_id);
+          await this.subscriber.quit();
+          console.log(message,"message")
+          resolve(JSON.parse(message));
+        } catch (err) {
+          reject(err);
+        }
+      });
     });
-  });
-};
-
-export { createRedisClient, pushOrderToQueue, getOrderResponse };
+  };
+}
+export default RedisHandler;
