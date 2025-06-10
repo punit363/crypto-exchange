@@ -32,9 +32,9 @@ class RedisHandler {
   sendAndAwait = async (order: OrderToEngine) => {
     await this.client.lPush("order", JSON.stringify(order));
     return new Promise((resolve, reject) => {
-      this.subscriber.subscribe(order.order_id, async (message) => {
+      this.subscriber.subscribe(order.order_data.order_id, async (message) => {
         try {
-          await this.subscriber.unsubscribe(order.order_id);
+          await this.subscriber.unsubscribe(order.order_data.order_id);
           await this.subscriber.quit();
           console.log(message,"message")
           resolve(JSON.parse(message));
