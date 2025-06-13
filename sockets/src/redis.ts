@@ -20,6 +20,21 @@ class RedisHandler {
     await this.instance.init();
     return this.instance;
   };
+
+
+  subscribeToTrade = async () => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        await this.tradeSubscriber.subscribe("trade", (message) => {
+          console.log(message, "message");
+          await this.tradeSubscriber.unsubscribe("trade");
+          resolve(JSON.parse(message));
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
 }
 
 export default RedisHandler;
