@@ -21,13 +21,26 @@ class RedisHandler {
     return this.instance;
   };
 
-
   subscribeToTrade = async () => {
     return new Promise(async (resolve, reject) => {
       try {
-        await this.tradeSubscriber.subscribe("trade", (message) => {
+        await this.tradeSubscriber.subscribe("trade", async (message) => {
           console.log(message, "message");
           await this.tradeSubscriber.unsubscribe("trade");
+          resolve(JSON.parse(message));
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
+  subscribeToOrderbook = async () => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        await this.orderbookSubscriber.subscribe("book", async (message) => {
+          console.log(message, "message");
+          await this.orderbookSubscriber.unsubscribe("book");
           resolve(JSON.parse(message));
         });
       } catch (error) {
