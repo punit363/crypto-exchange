@@ -1,5 +1,5 @@
 import { Ask, Bid, bookWithQuantity, Fills, orderbook } from "./orderbook";
-import { sendOrderResponse } from "./redis";
+import RedisHandler from "./redis";
 
 const engine = async (order: {
   action: string;
@@ -102,7 +102,13 @@ const engine = async (order: {
       );
       console.log(orderbook, "++++++++");
       console.log(bookWithQuantity, "--------");
-      await sendOrderResponse({ order_id, fills });
+      const redis = await RedisHandler.createInstance();
+      await redis.sendOrderResponse({ order_id, fills });
+      await redis.publishTrade(fills);
+
+      if (fills.length != 0) {
+        await redis.publishOrderBookWithQuantity(bookWithQuantity);
+      }
       break;
 
     case "CANCEL_ORDER":
@@ -139,7 +145,8 @@ const engine = async (order: {
       console.log(orderbook, "orderbook order");
       console.log(bookWithQuantity, "bookWithQuantity order");
 
-      await sendOrderResponse({
+      const redis1 = await RedisHandler.createInstance();
+      await redis1.sendOrderResponse({
         order_id: order.order_data.order_id,
         message: "Order cancelled successfully",
       });

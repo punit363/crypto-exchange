@@ -1,24 +1,45 @@
-import { createClient } from "redis";
+import { createClient, RedisClientType } from "redis";
 
-let client: any;
+class RedisHandler {
+  private client!: RedisClientType;
+  private publisher!: RedisClientType;
+  private static instance: RedisHandler;
 
-const createRedisClient = async () => {
-  if (!client) {
-    client = createClient();
-    client.on("error", (err: any) => console.log("Redis Client Error", err));
-    await client.connect();
-  }
-  return client;
-};
+  init = async () => {
+    this.client = createClient();
+    this.publisher = createClient();
 
-const sendOrderResponse = async (order_response: any) => {
-  console.log(order_response, "publisher");
-  const publisher = createClient();
-  await publisher.connect();
-  await publisher.publish(
-    order_response.order_id,
-    JSON.stringify(order_response)
-  );
-};
+    await this.client.connect();
+    await this.publisher.connect();
+  };
 
-export { createRedisClient, sendOrderResponse };
+  static createInstance = async () => {
+    if (!RedisHandler.instance) {
+      RedisHandler.instance = new RedisHandler();
+      await RedisHandler.instance.init();
+    }
+    return RedisHandler.instance;
+  };
+
+  sendOrderResponse = async (order_response: any) => {
+    console.log(order_response, "publisher");
+    await this.publisher.publish(
+      order_response.order_id,
+      JSON.stringify(order_response)
+    );
+  };
+
+  getOrderFromQueue = async () => {
+    const order = await this.client.brPop("order", 0);
+    return order;
+  };
+
+  publishTrade = async (trade_details: any) => {
+    await this.publisher.publish("trade", JSON.stringify(trade_details));
+  };
+
+  publishOrderBookWithQuantity = async (book_details: any) => {
+    await this.publisher.publish("book", JSON.stringify(book_details));
+  };
+}
+export default RedisHandler;
