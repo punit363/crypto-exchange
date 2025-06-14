@@ -35,10 +35,12 @@ class RedisHandler {
   };
 
   publishTrade = async (trade_details: any) => {
+    console.log("publishing trade");
     await this.publisher.publish("trade", JSON.stringify(trade_details));
   };
 
   publishOrderBookWithQuantity = async (book_details: any) => {
+    console.log("publishing book");
     await this.publisher.publish("book", JSON.stringify(book_details));
   };
 }

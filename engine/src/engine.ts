@@ -106,6 +106,7 @@ const engine = async (order: {
       await redis.sendOrderResponse({ order_id, fills });
       await redis.publishTrade(fills);
 
+      //TODO: so it will basically never send it unless the first fill // BAD //
       if (fills.length != 0) {
         await redis.publishOrderBookWithQuantity(bookWithQuantity);
       }

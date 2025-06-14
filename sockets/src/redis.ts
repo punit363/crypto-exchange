@@ -16,8 +16,8 @@ class RedisHandler {
   static createInstance = async () => {
     if (!this.instance) {
       this.instance = new RedisHandler();
+      await this.instance.init();
     }
-    await this.instance.init();
     return this.instance;
   };
 
