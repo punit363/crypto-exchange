@@ -12,21 +12,19 @@ wss.on("connection", async function connection(ws: any) {
     data = JSON.parse(data);
     if (data.action === "SUBSCRIBE" && data.type === "BOOK") {
       console.log("received: %s", data);
-      while (true) {
-        const redis = await RedisHandler.createInstance();
-        const book_data = await redis.subscribeToOrderbook();
+      const redis = await RedisHandler.createInstance();
+      redis.subscribeToOrderbook((book_data) => {
         ws.send(JSON.stringify({ book: book_data }));
-        console.log("ok socket");
-      }
+      });
+      console.log("ok socket");
     }
     if (data.action === "SUBSCRIBE" && data.type === "TRADE") {
       console.log("received: %s", data);
-      while (true) {
-        const redis = await RedisHandler.createInstance();
-        const trade_data = await redis.subscribeToTrade();
+      const redis = await RedisHandler.createInstance();
+      const trade_data = await redis.subscribeToTrade((trade_data) => {
         ws.send(JSON.stringify({ trade: trade_data }));
-        console.log("ok socket");
-      }
+      });
+      console.log("ok socket");
     }
   });
 });
