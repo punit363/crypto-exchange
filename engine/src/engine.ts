@@ -105,6 +105,7 @@ const engine = async (order: {
       const redis = await RedisHandler.createInstance();
       await redis.sendOrderResponse({ order_id, fills });
       await redis.publishTrade(fills);
+      await redis.sendTradeToDB(fills);
 
       //TODO: so it will basically never send it unless the first fill // BAD //
       if (fills.length != 0) {

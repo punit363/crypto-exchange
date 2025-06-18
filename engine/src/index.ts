@@ -2,9 +2,9 @@ import { engine } from "./engine";
 import RedisHandler from "./redis";
 const main = async () => {
   let i = 0;
+  const redis = await RedisHandler.createInstance();
   while (true) {
     console.log("loop", i++);
-    const redis = await RedisHandler.createInstance();
     const order = await redis.getOrderFromQueue();
     
     if (order) {

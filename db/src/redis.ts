@@ -4,7 +4,7 @@ class RedisHandler {
   private client!: RedisClientType;
   private static instance: RedisHandler;
 
-  init = async () => {
+  private init = async () => {
     this.client = createClient();
     await this.client.connect();
   };
