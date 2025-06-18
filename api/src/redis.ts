@@ -22,11 +22,11 @@ class RedisHandler {
   };
 
   static createInstance = async () => {
-    if (!RedisHandler.instance) {
-      RedisHandler.instance = new RedisHandler();
-      await RedisHandler.instance.init();
+    if (!this.instance) {
+      this.instance = new RedisHandler();
+      await this.instance.init();
     }
-    return RedisHandler.instance;
+    return this.instance;
   };
 
   sendAndAwait = async (order: OrderToEngine) => {
