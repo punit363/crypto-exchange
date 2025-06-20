@@ -1,16 +1,49 @@
 import { Ask, Bid, bookWithQuantity, Fills, orderbook } from "./orderbook";
 import RedisHandler from "./redis";
 
+const balance = new Map();
+
+const balance_arr = [
+  [
+    "1",
+    {
+      INR: {
+        available: 10000,
+        locked: 200,
+      },
+      SOL: {
+        available: 100,
+        locked: 20,
+      },
+    },
+  ],
+  [
+    "2",
+    {
+      INR: {
+        available: 20000,
+        locked: 220,
+      },
+      SOL: {
+        available: 200,
+        locked: 10,
+      },
+    },
+  ],
+];
+
 const engine = async (order: {
   action: string;
   order_data: { order_id: any; price?: any; quantity?: any; side?: any };
 }) => {
+  
   console.log(order, "engine order inside 1");
   switch (order.action) {
     case "PLACE_ORDER":
       let { order_id, price, quantity, side } = order.order_data;
 
       console.log(order, "engine order inside 2");
+
       const fills: Fills[] = [];
 
       const ask_splice_indexes: number[] = [];
