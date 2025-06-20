@@ -56,7 +56,12 @@ const checkAndLockBalance = (user_id: any, order_data: any) => {
   }
 };
 
-const updateBalance = (amount: number, price: number, side: string, user_id: any) => {
+const updateBalance = (
+  amount: number,
+  price: number,
+  side: string,
+  user_id: any
+) => {
   const user_balance = balance.get(user_id);
   if (side === "sell") {
     user_balance.SOL.locked -= amount;
@@ -74,8 +79,8 @@ class Engine {
     order_data: { order_id: any; price?: any; quantity?: any; side?: any };
   }) => {
     switch (order.action) {
-      case "PLACE_ORDER":
-        const { order_id, fills } = await this.orderbook.placeOrder(
+      case "PLACE_ORDER": {
+        const { order_id, fills } = this.orderbook.placeOrder(
           order.user_id,
           order.order_data
         );
@@ -89,6 +94,18 @@ class Engine {
         // if (fills.length != 0) {
         //   await redis.publishOrderBookWithQuantity(bookWithQuantity);
         // }
+        break;
+      }
+      case "CANCEL_ORDER": {
+        const { order_id } = this.orderbook.cancelOrder(order.order_data);
+
+        const redis1 = await RedisHandler.createInstance();
+        await redis1.sendOrderResponse({
+          order_id,
+          message: "Order cancelled successfully",
+        });
+        break;
+      }
     }
   };
 }
@@ -250,4 +267,4 @@ class Engine {
 //   }
 // };
 
-export default Engine ;
+export default Engine;
