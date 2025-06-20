@@ -32,6 +32,40 @@ const balance_arr = [
   ],
 ];
 
+const checkAndLockBalance = (user_id, order_data) => {
+  const user_balance = balance.get(user_id);
+  if (!user_balance) {
+    return { message: "user balance does not exist" };
+  }
+  if (
+    order_data.side === "sell" &&
+    user_balance.SOL.available >= order_data.quantity
+  ) {
+    user_balance.SOL.available -= order_data.quantity;
+    user_balance.SOL.locked += order_data.quantity;
+    return "available and locked";
+  } else if (
+    order_data.side === "buy" &&
+    user_balance.INR.available >= order_data.quantity * order_data.price
+  ) {
+    user_balance.INR.available -= order_data.quantity;
+    user_balance.INR.locked += order_data.quantity;
+    return "available and locked";
+  } else {
+    return "Insufficent funds";
+  }
+};
+
+const updateBalance = (amount, price, side, user_id) => {
+  const user_balance = balance.get(user_id);
+  if (side === "sell") {
+    user_balance.SOL.locked -= amount;
+  } else if (side === "buy") {
+    user_balance.INR.locked -= amount * price;
+  }
+};
+
+
 const engine = async (order: {
   action: string;
   order_data: { order_id: any; price?: any; quantity?: any; side?: any };
