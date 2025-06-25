@@ -22,7 +22,6 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    console.log(order_response, "Order response");
     return res.send({ data: order_response });
   } catch (error) {
     console.error("Error in order/placeOrder:", error);
