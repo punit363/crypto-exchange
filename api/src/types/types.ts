@@ -3,6 +3,7 @@ type OrderData = {
   price?: number;
   quantity?: number;
   side?: string;
+  type?: string;
 };
 
 type OrderToEngine = {

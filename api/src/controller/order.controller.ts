@@ -4,11 +4,11 @@ import { generateOrderId } from "../utils";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { price, quantity, side } = req.body;
+    const { price, quantity, side, type } = req.body;
 
-    if (!price || !quantity || !side) {
-      return res.status(400).send({ error: "Missing required fields" });
-    }
+    // if (!price || !quantity || !side || !type) {
+    //   return res.status(400).send({ error: "Missing required fields" });
+    // }
 
     const order_id = generateOrderId();
     const redis = await RedisHandler.createInstance();
@@ -19,6 +19,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
         price,
         quantity,
         side,
+        type
       },
     });
 

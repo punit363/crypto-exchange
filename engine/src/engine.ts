@@ -76,17 +76,23 @@ class Engine {
   processOrder = async (order: {
     action: string;
     user_id: string;
-    order_data: { order_id: any; price?: any; quantity?: any; side?: any };
+    order_data: {
+      order_id: any;
+      price?: any;
+      quantity?: any;
+      side?: any;
+      type?: any;
+    };
   }) => {
     switch (order.action) {
       case "PLACE_ORDER": {
-        const { order_id, fills } = this.orderbook.placeOrder(
+        const { order_id, fills, unsold_market_order_quanity } = this.orderbook.placeOrder(
           order.user_id,
           order.order_data
         );
 
         const redis = await RedisHandler.createInstance();
-        await redis.sendOrderResponse({ order_id, fills });
+        await redis.sendOrderResponse({ order_id, fills , unsold_market_order_quanity});
         await redis.publishTrade(fills);
         await redis.sendTradeToDB(fills);
 

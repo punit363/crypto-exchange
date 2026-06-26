@@ -16,3 +16,17 @@ const main = async () => {
 };
 
 main();
+
+/**
+ * 
+ * bids: { '200': 30 },
+ * asks: { '210': 20 }
+ * 
+ * problem: 
+ * if it is market
+ * logs into fills
+ * never logs into orderbook's bid and ask
+ * never log in to book with quantity
+ * the order either executes or returns remaining price/quantity
+ * 
+ */
