@@ -1,3 +1,5 @@
+import { generateTradeId } from "./utils";
+
 interface Order {
   orderId: string;
   userID: string;
@@ -57,10 +59,10 @@ export class Orderbook {
 
     const bid_splice_indexes: number[] = [];
 
-    const tradeId = "#5234";
+    const tradeId = generateTradeId();
     let i = 0;
 
-    this.bids.forEach((o: Order) => {
+    for (const [idx, o] of this.bids.entries()) {
       i++;
       if (price <= o.price) {
         const fillQuantity = Math.min(quantity, o.quantity);
@@ -82,7 +84,10 @@ export class Orderbook {
       if (bookWithQuantity.bids[o.price] === 0) {
         delete bookWithQuantity.bids[o.price];
       }
-    });
+      if (quantity === 0) {
+        break;
+      }
+    }
 
     if (quantity != 0) {
       //Insert order in sorted format
@@ -118,10 +123,10 @@ export class Orderbook {
 
     const ask_splice_indexes: number[] = [];
 
-    const tradeId = "#5234";
+    const tradeId = generateTradeId();
     let i = 0;
 
-    this.asks.forEach((o: Order) => {
+    for (const [idx, o] of this.asks.entries()) {
       if (price >= o.price) {
         const fillQuantity = Math.min(quantity, o.quantity);
         o.quantity -= fillQuantity;
@@ -145,7 +150,11 @@ export class Orderbook {
       if (bookWithQuantity.asks[o.price] === 0) {
         delete bookWithQuantity.asks[o.price];
       }
-    });
+
+      if (quantity === 0) {
+        break;
+      }
+    }
 
     if (quantity != 0) {
       //Insert order in sorted format
@@ -175,12 +184,18 @@ export class Orderbook {
     user_id: string,
     order_data: { order_id: any; price?: any; quantity?: any; side?: any }
   ) => {
+    console.log("\n Book with Quantity", bookWithQuantity);
     if (order_data.side == "sell") {
       const { order_id, fills } = this.executeSellOrder(user_id, order_data);
+      console.log("\n Book with Quantity sell", bookWithQuantity);
+      console.log("\n", this.bids, " Bids and Asks", this.asks);
       return { order_id, fills };
     } else if (order_data.side == "buy") {
       const { order_id, fills } = this.executeBuyOrder(user_id, order_data);
+      console.log("\n Book with Quantity buy", bookWithQuantity);
       return { order_id, fills };
+    } else {
+      throw new Error(`Invalid order side provided: ${order_data.side}`);
     }
   };
 
