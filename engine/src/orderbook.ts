@@ -138,6 +138,7 @@ export class Orderbook {
       if (type == "market") {
         quantity = price / o.price;
         const fillQuantity = Math.min(quantity, o.quantity);
+        o.quantity -= fillQuantity;
         bookWithQuantity.asks[o.price] =
           (bookWithQuantity.asks[o.price] || 0) - fillQuantity;
 
@@ -186,7 +187,7 @@ export class Orderbook {
       }
     }
 
-    if (quantity != 0) {
+    if (quantity != 0 && type === "limit") {
       //Insert order in sorted format
       const odr: Order = {
         price,
@@ -196,7 +197,6 @@ export class Orderbook {
         userID: user_id,
       };
       const index = this.bids.findIndex((el: Order) => el.price > odr.price);
-
       if (index === -1) {
         this.bids.push(odr);
       } else {
@@ -206,11 +206,11 @@ export class Orderbook {
       bookWithQuantity.bids[price] =
         (bookWithQuantity.bids[price] || 0) + quantity;
     }
-    if(price !=0 && type==="market"){
+    if (price != 0 && type === "market") {
       unused_market_order_amount = price;
     }
     this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
-    return { order_id, fills, unused_market_order_amount};
+    return { order_id, fills, unused_market_order_amount };
   };
 
   placeOrder = (
@@ -230,7 +230,8 @@ export class Orderbook {
       );
       return { order_id, fills, unsold_market_order_quanity };
     } else if (order_data.side == "buy") {
-      const { order_id, fills,unused_market_order_amount } = this.executeBuyOrder(user_id, order_data);
+      const { order_id, fills, unused_market_order_amount } =
+        this.executeBuyOrder(user_id, order_data);
       console.log("\n Book with Quantity buy============", bookWithQuantity);
       console.log(
         "\n Bids-----------",
@@ -238,7 +239,7 @@ export class Orderbook {
         "\n Asks++++++++++++",
         this.asks
       );
-      return { order_id, fills,unused_market_order_amount };
+      return { order_id, fills, unused_market_order_amount };
     } else {
       throw new Error(`Invalid order side provided: ${order_data.side}`);
     }
