@@ -16,21 +16,20 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const userdata: UserData = {
-        user_id: generateUserId(),
-        first_name: firstname,
-        last_name: lastname,
-        age: Number(age),
-        email: email,
-        phone: phone,
-        password: hashedPassword,
-      };
+      user_id: generateUserId(),
+      first_name: firstname,
+      last_name: lastname,
+      age: Number(age),
+      email: email,
+      phone: phone,
+      password: hashedPassword,
+    };
 
     const newUser = await prisma.user.create({
       data: userdata,
     });
 
     const { password: _, ...userWithoutPassword } = newUser;
-
 
     return res.send({ data: userWithoutPassword });
   } catch (error) {
@@ -39,4 +38,42 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { registerUser };
+const addBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { user_id, amount } = req.body;
+
+    if (!user_id || !amount) {
+      return res.status(400).send({ error: "Missing required fields" });
+    }
+
+    const depositAmount = Number(amount);
+
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+      res
+        .status(400)
+        .json({ error: "Amount must be a valid number greater than zero." });
+      return;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        user_id: user_id,
+      },
+      data: {
+        balance: {
+          increment: depositAmount, // 👈 Prisma handles the math directly inside PostgreSQL!
+        },
+      },
+    });
+
+    res.status(200).json({
+      message: "Balance added successfully",
+      data: { new_balance: updatedUser.balance.toString() },
+    });
+  } catch (error) {
+    console.error("Error in order/addBalance:", error);
+    return res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+export { registerUser, addBalance };

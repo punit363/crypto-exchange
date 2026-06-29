@@ -14,6 +14,8 @@ model User {
   email      String   @unique
   phone      String   @unique
   password   String
+  balance      Decimal  @default(0.00)
+  balance_lock Decimal  @default(0.00)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
