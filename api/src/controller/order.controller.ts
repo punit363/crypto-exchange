@@ -19,7 +19,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
         price,
         quantity,
         side,
-        type
+        type,
       },
     });
 

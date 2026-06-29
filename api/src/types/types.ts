@@ -11,4 +11,14 @@ type OrderToEngine = {
   order_data: OrderData;
 };
 
-export { OrderToEngine };
+type UserData = {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  age: number;
+  email: string;
+  phone: string;
+  password: string;
+};
+
+export { OrderToEngine, UserData };
