@@ -7,8 +7,9 @@ const main = async () => {
   while (true) {
     console.log("loop", i++);
     const order = await redis.getOrderFromQueue();
-    
+    console.log("order-----------engine/indexjs", order);
     if (order) {
+      
       await engine.processOrder(JSON.parse(order.element));
       console.log(JSON.parse(order.element), "engine order");
     }

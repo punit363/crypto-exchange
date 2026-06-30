@@ -46,13 +46,24 @@ const addBalance = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).send({ error: "Missing required fields" });
     }
 
+    const user = await prisma.user.findFirst({
+      where: {
+        user_id,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).send({
+        message: "User not found for the corresponding user_id",
+      });
+    }
+
     const depositAmount = Number(amount);
 
     if (isNaN(depositAmount) || depositAmount <= 0) {
-      res
+      return res
         .status(400)
         .json({ error: "Amount must be a valid number greater than zero." });
-      return;
     }
 
     const updatedUser = await prisma.user.update({

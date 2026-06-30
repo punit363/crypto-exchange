@@ -53,7 +53,7 @@ export class Orderbook {
     }
   ) => {
     let { order_id, price, quantity, type } = order_data;
-
+    console.log("user_id=================3", user_id);
     const fills: Fills[] = [];
     let unsold_market_order_quanity;
     const bid_splice_indexes: number[] = [];
@@ -68,6 +68,8 @@ export class Orderbook {
         o.quantity -= fillQuantity;
         bookWithQuantity.bids[o.price] =
           (bookWithQuantity.bids[o.price] || 0) - fillQuantity;
+          console.log("user_id=================4", user_id);
+          console.log("user_id=================5", o.userID);
         fills.push({
           price: o.price,
           quantity: fillQuantity,
@@ -217,6 +219,7 @@ export class Orderbook {
     user_id: string,
     order_data: { order_id: any; price?: any; quantity?: any; side?: any }
   ) => {
+    console.log("\n user_id==============2", user_id);
     console.log("\n Book with Quantity", bookWithQuantity);
     if (order_data.side == "sell") {
       const { order_id, fills, unsold_market_order_quanity } =

@@ -8,6 +8,7 @@ type OrderData = {
 
 type OrderToEngine = {
   action: string;
+  user_id: string;
   order_data: OrderData;
 };
 

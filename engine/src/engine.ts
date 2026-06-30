@@ -86,13 +86,20 @@ class Engine {
   }) => {
     switch (order.action) {
       case "PLACE_ORDER": {
-        const { order_id, fills, unsold_market_order_quanity = null, unused_market_order_amount= null } = this.orderbook.placeOrder(
-          order.user_id,
-          order.order_data
-        );
-
+        console.log("order.user_id==============1", order);
+        const {
+          order_id,
+          fills,
+          unsold_market_order_quanity = null,
+          unused_market_order_amount = null,
+        } = this.orderbook.placeOrder(order.user_id, order.order_data);
         const redis = await RedisHandler.createInstance();
-        await redis.sendOrderResponse({ order_id, fills , unsold_market_order_quanity,unused_market_order_amount});
+        await redis.sendOrderResponse({
+          order_id,
+          fills,
+          unsold_market_order_quanity,
+          unused_market_order_amount,
+        });
         await redis.publishTrade(fills);
         await redis.sendTradeToDB(fills);
 
