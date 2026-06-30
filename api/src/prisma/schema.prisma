@@ -1,7 +1,3 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
 }
@@ -18,4 +14,31 @@ model User {
   balance_lock Decimal  @default(0.00)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  holdings     Holding[] 
+  @@map("users")
+}
+
+model Asset {
+  symbol        String    @id 
+  name          String   
+  current_price Decimal   @default(0.00)
+  is_active     Boolean   @default(true)
+  holdings      Holding[] 
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@map("assets")
+}
+
+model Holding {
+  holding_id   String    @id @default(uuid())
+  user_id      String    
+  user         User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  asset_symbol String    
+  asset_data   Asset     @relation(fields: [asset_symbol], references: [symbol])
+  asset_balance      Decimal   @default(0.00)
+  asset_balance_lock Decimal   @default(0.00)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  @@unique([user_id, asset_symbol]) 
+  @@map("holdings")
 }
