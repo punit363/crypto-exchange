@@ -24,7 +24,7 @@ interface Fills {
   tradeId: string;
 }
 
-export class Orderbook {
+class Orderbook {
   baseAsset: string;
   quoteAsset: string;
   bids: Order[];
@@ -47,6 +47,18 @@ export class Orderbook {
     this.lastTradeId = lastTradeId;
     this.currentPrice = currentPrice;
   }
+
+  updateCurrentPrice = (fills: Fills[]) => {
+    if (fills.length > 0) {
+      this.currentPrice = fills[fills.length - 1].price;
+    }
+  };
+
+  updateLastTradeId = (fills: Fills[]) => {
+    if (fills.length > 0) {
+      this.lastTradeId = fills[fills.length - 1].tradeId;
+    }
+  };
 
   executeSellOrder = (
     user_id: string,
@@ -233,6 +245,8 @@ export class Orderbook {
         "\n Asks++++++++++++",
         this.asks
       );
+      this.updateCurrentPrice(fills);
+      this.updateLastTradeId(fills);
       return { order_id, fills, unsold_market_order_quanity };
     } else if (order_data.side == "buy") {
       const { order_id, fills, unused_market_order_amount } =
@@ -244,6 +258,8 @@ export class Orderbook {
         "\n Asks++++++++++++",
         this.asks
       );
+      this.updateCurrentPrice(fills);
+      this.updateLastTradeId(fills);
       return { order_id, fills, unused_market_order_amount };
     } else {
       throw new Error(`Invalid order side provided: ${order_data.side}`);
@@ -280,3 +296,5 @@ export class Orderbook {
     return { order_id: order_data.order_id };
   };
 }
+
+export { Fills, Orderbook };
