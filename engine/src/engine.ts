@@ -1,73 +1,137 @@
 import fs from "fs";
-import { Orderbook } from "./orderbook";
+import { Orderbook, Fills } from "./orderbook";
 import RedisHandler from "./redis";
+import { snapshot } from "node:test";
 
-const balance = new Map();
+interface UserBalance {
+  [key: string]: {
+    available: number;
+    locked: number;
+  };
+}
 
-const balance_arr = [
+//baseAsset : BTC, quoteAsset : INR
+
+const balance_arr: [string, UserBalance][] = [
   [
-    "1",
+    "usr_6q9g3syt014",
     {
       INR: {
         available: 10000,
-        locked: 200,
+        locked: 0,
       },
-      SOL: {
+      BTC: {
         available: 100,
-        locked: 20,
+        locked: 0,
       },
     },
   ],
   [
-    "2",
+    "usr_xslwr9hnet",
     {
       INR: {
         available: 20000,
-        locked: 220,
+        locked: 0,
       },
-      SOL: {
+      BTC: {
         available: 200,
-        locked: 10,
+        locked: 0,
       },
     },
   ],
 ];
 
-const checkAndLockBalance = (user_id: any, order_data: any) => {
+let balance = new Map<string, UserBalance>(balance_arr);
+
+const checkUserBalance = (user_id: any) => {
   const user_balance = balance.get(user_id);
   if (!user_balance) {
-    return { message: "user balance does not exist" };
+    balance.set(user_id, {
+      INR: {
+        available: 0,
+        locked: 0,
+      },
+      BTC: {
+        available: 0,
+        locked: 0,
+      },
+    });
+    return { message: "balance does not exist" };
   }
-  if (
-    order_data.side === "sell" &&
-    user_balance.SOL.available >= order_data.quantity
-  ) {
-    user_balance.SOL.available -= order_data.quantity;
-    user_balance.SOL.locked += order_data.quantity;
-    return "available and locked";
-  } else if (
-    order_data.side === "buy" &&
-    user_balance.INR.available >= order_data.quantity * order_data.price
-  ) {
-    user_balance.INR.available -= order_data.quantity;
-    user_balance.INR.locked += order_data.quantity;
-    return "available and locked";
-  } else {
-    return "Insufficent funds";
+  return user_balance;
+};
+
+const checkAndLockBalance = (
+  user_id: any,
+  quantity: number,
+  price: number,
+  side: string,
+  quoteAsset: string,
+  baseAsset: string
+) => {
+  const userBalance = balance.get(user_id);
+  if (!userBalance) {
+    return { message: "Balance does not exist. Register user first" };
+  }
+
+  if (side == "buy") {
+    if (userBalance[quoteAsset].available < quantity * price) {
+      throw new Error("Insufficient balance for buy order");
+    }
+
+    userBalance[quoteAsset].available -= quantity * price;
+    userBalance[quoteAsset].locked += quantity * price;
+  } else if (side == "sell") {
+    if (userBalance[baseAsset].available < quantity) {
+      throw new Error("Insufficient balance for sell order");
+    }
+
+    userBalance[baseAsset].available -= quantity;
+    userBalance[baseAsset].locked += quantity;
   }
 };
 
-const updateBalance = (
-  amount: number,
-  price: number,
+const settleBalanceAfterTrade = (
+  fills: Fills[],
   side: string,
-  user_id: any
+  quoteAsset: string,
+  baseAsset: string
 ) => {
-  const user_balance = balance.get(user_id);
   if (side === "sell") {
-    user_balance.SOL.locked -= amount;
+    for (const fill of fills) {
+      const userBalance = balance.get(fill.userId);
+      const otherUserBalance = balance.get(fill.otherUserId);
+      //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+
+      if (!userBalance || !otherUserBalance) {
+        throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
+      }
+
+      userBalance[baseAsset].locked -= fill.quantity;
+      userBalance[quoteAsset].available += fill.quantity * fill.price;
+
+      otherUserBalance[quoteAsset].locked -= fill.quantity * fill.price;
+      otherUserBalance[baseAsset].available += fill.quantity;
+    }
   } else if (side === "buy") {
-    user_balance.INR.locked -= amount * price;
+    for (const fill of fills) {
+      const userBalance = balance.get(fill.userId);
+      const otherUserBalance = balance.get(fill.otherUserId);
+      //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+
+      if (!userBalance || !otherUserBalance) {
+        throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
+      }
+
+      userBalance[quoteAsset].locked -= fill.quantity * fill.price;
+      userBalance[baseAsset].available += fill.quantity;
+
+      otherUserBalance[baseAsset].locked -= fill.quantity;
+      otherUserBalance[quoteAsset].available += fill.quantity * fill.price;
+    }
+    return "available and locked";
+  } else {
+    throw new Error("Order side must be buy or sell");
   }
 };
 
@@ -77,27 +141,43 @@ class Engine {
   constructor() {
     try {
       const snapshot = fs.readFileSync("./snapshot.json", "utf-8");
-      if (snapshot) {
-        this.orderbooks = JSON.parse(snapshot).map(
-          (ob: any) =>
-            new Orderbook(
-              ob.baseAsset,
-              ob.quoteAsset,
-              ob.bids,
-              ob.asks,
-              ob.lastTradeId,
-              ob.currentPrice
-            )
-        );
-      } else {
-        this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
-      }
+      const parsed = JSON.parse(snapshot); 
+  
+      this.orderbooks = parsed.orderbooks.map(
+        (ob: any) =>
+          new Orderbook(
+            ob.baseAsset,
+            ob.quoteAsset,
+            ob.bids,
+            ob.asks,
+            ob.lastTradeId,
+            ob.currentPrice
+          )
+      );
+  
+      balance = new Map<string, UserBalance>(parsed.balances); 
+  
+      console.log("Snapshot loaded ✓");
     } catch {
+      // No snapshot found, start fresh
       this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
+      console.log("No snapshot found, starting fresh");
     }
-
+  
     setInterval(() => {
-      fs.writeFileSync("snapshot.json", JSON.stringify(this.orderbooks));
+      const currentSnapshot = {
+        orderbooks: this.orderbooks.map((ob) => ({
+          baseAsset: ob.baseAsset,
+          quoteAsset: ob.quoteAsset,
+          bids: ob.bids,
+          asks: ob.asks,
+          lastTradeId: ob.lastTradeId,
+          currentPrice: ob.currentPrice,
+        })),
+        balances: Array.from(balance.entries()), 
+      };
+  
+      fs.writeFileSync("./snapshot.json", JSON.stringify(currentSnapshot)); 
     }, 1000 * 3);
   }
 
@@ -110,18 +190,28 @@ class Engine {
       quantity?: any;
       side?: any;
       type?: any;
-      market?: any;
+      baseAsset?: any;
+      quoteAsset?: any;
     };
   }) => {
     switch (order.action) {
       case "PLACE_ORDER": {
         const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === order.order_data.market
+          (o) => o.baseAsset === order.order_data.baseAsset
         );
 
         if (!orderbook) {
           throw new Error("No orderbook found");
         }
+
+        checkAndLockBalance(
+          order.user_id,
+          order.order_data.quantity,
+          order.order_data.price,
+          order.order_data.side,
+          order.order_data.quoteAsset,
+          order.order_data.baseAsset
+        );
 
         const {
           order_id,
@@ -129,6 +219,13 @@ class Engine {
           unsold_market_order_quanity = null,
           unused_market_order_amount = null,
         } = orderbook.placeOrder(order.user_id, order.order_data);
+
+        settleBalanceAfterTrade(
+          fills,
+          order.order_data.side,
+          order.order_data.quoteAsset,
+          order.order_data.baseAsset
+        );
 
         const redis = await RedisHandler.createInstance();
         await redis.sendOrderResponse({
@@ -148,7 +245,7 @@ class Engine {
       }
       case "CANCEL_ORDER": {
         const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === order.order_data.market
+          (o) => o.baseAsset === order.order_data.baseAsset
         );
 
         if (!orderbook) {

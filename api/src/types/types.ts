@@ -4,7 +4,8 @@ type OrderData = {
   quantity?: number;
   side?: string;
   type?: string;
-  market?: string;
+  baseAsset?: string;
+  quoteAsset?: string;
 };
 
 type OrderToEngine = {
