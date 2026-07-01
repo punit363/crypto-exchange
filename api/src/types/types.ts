@@ -4,6 +4,7 @@ type OrderData = {
   quantity?: number;
   side?: string;
   type?: string;
+  market?: string;
 };
 
 type OrderToEngine = {

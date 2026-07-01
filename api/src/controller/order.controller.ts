@@ -6,9 +6,9 @@ import { Prisma } from "@prisma/client";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { user_id, price, quantity, side, type, asset } = req.body;
+    const { user_id, price, quantity, side, type, asset, market } = req.body;
 
-    if (!user_id || !price || !quantity || !side || !type || !asset) {
+    if (!user_id || !price || !quantity || !side || !type || !asset || !market) {
       return res.status(400).send({ error: "Missing required fields" });
     }
 
@@ -102,6 +102,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
         quantity,
         side,
         type,
+        market
       },
     })) as OrderResponse;
 

@@ -1,3 +1,4 @@
+import fs from "fs";
 import { Orderbook } from "./orderbook";
 import RedisHandler from "./redis";
 
@@ -71,7 +72,34 @@ const updateBalance = (
 };
 
 class Engine {
-  orderbook = new Orderbook("SOL", "INR", [], []);
+  orderbooks: Orderbook[] = [];
+
+  constructor() {
+    try {
+      const snapshot = fs.readFileSync("./snapshot.json", "utf-8");
+      if (snapshot) {
+        this.orderbooks = JSON.parse(snapshot).map(
+          (ob: any) =>
+            new Orderbook(
+              ob.baseAsset,
+              ob.quoteAsset,
+              ob.bids,
+              ob.asks,
+              ob.lastTradeId,
+              ob.currentPrice
+            )
+        );
+      } else {
+        this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
+      }
+    } catch {
+      this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
+    }
+
+    setInterval(() => {
+      fs.writeFileSync("snapshot.json", JSON.stringify(this.orderbooks));
+    }, 1000 * 3);
+  }
 
   processOrder = async (order: {
     action: string;
@@ -82,17 +110,26 @@ class Engine {
       quantity?: any;
       side?: any;
       type?: any;
+      market?: any;
     };
   }) => {
     switch (order.action) {
       case "PLACE_ORDER": {
-        console.log("order.user_id==============1", order);
+        const orderbook = this.orderbooks.find(
+          (o) => o.baseAsset === order.order_data.market
+        );
+
+        if (!orderbook) {
+          throw new Error("No orderbook found");
+        }
+
         const {
           order_id,
           fills,
           unsold_market_order_quanity = null,
           unused_market_order_amount = null,
-        } = this.orderbook.placeOrder(order.user_id, order.order_data);
+        } = orderbook.placeOrder(order.user_id, order.order_data);
+
         const redis = await RedisHandler.createInstance();
         await redis.sendOrderResponse({
           order_id,
@@ -110,7 +147,14 @@ class Engine {
         break;
       }
       case "CANCEL_ORDER": {
-        const { order_id } = this.orderbook.cancelOrder(order.order_data);
+        const orderbook = this.orderbooks.find(
+          (o) => o.baseAsset === order.order_data.market
+        );
+
+        if (!orderbook) {
+          throw new Error("No orderbook found");
+        }
+        const { order_id } = orderbook.cancelOrder(order.order_data);
 
         const redis1 = await RedisHandler.createInstance();
         await redis1.sendOrderResponse({
