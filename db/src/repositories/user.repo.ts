@@ -1,5 +1,4 @@
 import { prisma } from "../client.js";
-import { Prisma } from "@prisma/client";
 
 export const UserRepo = {
   findById: async (user_id: string) => {
@@ -21,11 +20,4 @@ export const UserRepo = {
   }) => {
     return prisma.user.create({ data });
   },
-
-  // updateBalance: async (user_id: string, balance: Prisma.Decimal) => {
-  //   return prisma.user.update({
-  //     where: { user_id },
-  //     data: { balance },
-  //   });
-  // },
 };

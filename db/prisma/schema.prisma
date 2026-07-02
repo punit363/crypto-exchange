@@ -6,22 +6,21 @@ generator client {
   provider            = "prisma-client-js"
   importFileExtension = "ts"   // ← needed for tsx compatibility
 }
-
 model User {
-  user_id      String        @id
-  first_name   String
-  last_name    String
-  age          Int
-  email        String        @unique
-  phone        String        @unique
-  password     String
-  created_at   DateTime      @default(now())
-  updated_at   DateTime      @updatedAt
-  orders       Order[]
-  transactions  Transaction[]
-  balance_ledger BalanceLedger[]
-  taker_trades  Trade[]  @relation("TakerTrades")
-  maker_trades  Trade[]  @relation("MakerTrades")
+  user_id             String        @id
+  first_name          String
+  last_name           String
+  age                 Int
+  email               String        @unique
+  phone               String        @unique
+  password            String
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+  orders              Order[]
+  transactions        Transaction[]
+  balance_ledger      BalanceLedger[]
+  trades              Trade[]         @relation("UserTrades")
+  other_trades        Trade[]         @relation("OtherUserTrades")
   @@map("users")
 }
 
@@ -39,26 +38,26 @@ model Order {
   quote_asset      String
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
-  trades           Trade[]  @relation("TakerOrder")
-  maker_trades     Trade[]  @relation("MakerOrder")
+  trades           Trade[]  @relation("UserOrder")
+  other_trades     Trade[]  @relation("OtherUserOrder")
   @@map("orders")
 }
 
 model Trade {
   trade_id       String   @id
-  taker_user_id  String                        // ← rename for clarity
-  maker_user_id  String
-  taker_order_id String
-  maker_order_id String
-  taker_order    Order    @relation("TakerOrder", fields: [taker_order_id], references: [order_id])
-  maker_order    Order    @relation("MakerOrder", fields: [maker_order_id], references: [order_id])
-  taker_user     User     @relation("TakerTrades", fields: [taker_user_id], references: [user_id])
-  maker_user     User     @relation("MakerTrades", fields: [maker_user_id], references: [user_id])
+  user_id        String                        // person who placed the latest order (aggressor)
+  other_user_id  String                        // person whose order was already in the book (resting)
+  order_id       String
+  other_order_id String
+  user           User     @relation("UserTrades", fields: [user_id], references: [user_id])
+  other_user     User     @relation("OtherUserTrades", fields: [other_user_id], references: [user_id])
+  user_order     Order    @relation("UserOrder", fields: [order_id], references: [order_id])
+  other_order    Order    @relation("OtherUserOrder", fields: [other_order_id], references: [order_id])
   quantity       Decimal
   price          Decimal
   base_asset     String
   quote_asset    String
-  taker_side     String                        // ← which side the taker was on
+  side           String                        // side of user_id (the aggressor) — buy | sell
   created_at     DateTime @default(now())
   @@map("trades")
 }
