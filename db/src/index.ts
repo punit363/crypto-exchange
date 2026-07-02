@@ -1,8 +1,10 @@
 //Initiating db
 
+import { verifyConnection } from "./client.js";
 import RedisHandler from "./redis.js";
 
 const dbMain = async () => {
+  await verifyConnection();
   const redis = await RedisHandler.createInstance();
   while (true) {
     const trade = await redis.getTradeDetail();

@@ -1,8 +1,9 @@
 {
   "name": "@exchange/db",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "generate": "prisma generate",
     "build": "tsc",
@@ -24,5 +25,11 @@
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   }
 }

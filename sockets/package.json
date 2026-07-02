@@ -1,5 +1,5 @@
 {
-  "name": "sockets",
+  "name": "@exchange/socket",
   "version": "1.0.0",
   "description": "websocket for crypto exchange",
   "main": "index.js",

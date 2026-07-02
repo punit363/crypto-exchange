@@ -1,5 +1,5 @@
 {
-  "name": "engine",
+  "name": "@exchange/engine",
   "version": "1.0.0",
   "description": "Order engine for crypto exchange",
   "main": "index.js",

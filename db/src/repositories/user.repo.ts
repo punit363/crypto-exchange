@@ -22,10 +22,10 @@ export const UserRepo = {
     return prisma.user.create({ data });
   },
 
-  updateBalance: async (user_id: string, balance: Prisma.Decimal) => {
-    return prisma.user.update({
-      where: { user_id },
-      data: { balance },
-    });
-  },
+  // updateBalance: async (user_id: string, balance: Prisma.Decimal) => {
+  //   return prisma.user.update({
+  //     where: { user_id },
+  //     data: { balance },
+  //   });
+  // },
 };

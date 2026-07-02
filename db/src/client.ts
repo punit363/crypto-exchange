@@ -18,6 +18,20 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set. Check your .env path!");
 }
 
+export async function verifyConnection() {
+  try {
+    console.log("⏳ Attempting to connect to the database...");
+    
+    await prisma.$queryRaw`SELECT 1`;
+    
+    console.log("✅ Database connection successful!");
+  } catch (error) {
+    console.error("❌ Database connection failed.");
+    console.error(error);
+    process.exit(1); 
+  }
+}
+
 const adapter = new PrismaPg({ connectionString });
 
 export const prisma = new PrismaClient({ adapter });
