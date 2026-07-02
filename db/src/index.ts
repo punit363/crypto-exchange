@@ -13,3 +13,9 @@ const dbMain = async () => {
 };
 
 dbMain();
+
+export { prisma } from "./client";
+// export { UserRepo } from "./repositories/user.repo"
+// export { OrderRepo } from "./repositories/order.repo"
+// export { TradeRepo } from "./repositories/trade.repo"
+// export { CandleRepo } from "./repositories/candle.repo"

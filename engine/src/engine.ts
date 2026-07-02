@@ -156,9 +156,7 @@ class Engine {
       );
   
       balance = new Map<string, UserBalance>(parsed.balances); 
-  
-      console.log("Snapshot loaded ✓");
-    } catch {
+      } catch {
       // No snapshot found, start fresh
       this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
       console.log("No snapshot found, starting fresh");
@@ -236,11 +234,7 @@ class Engine {
         });
         await redis.publishTrade(fills);
         await redis.sendTradeToDB(fills);
-
-        //TODO: so it will basically never send it unless the first fill // BAD //
-        // if (fills.length != 0) {
-        //   await redis.publishOrderBookWithQuantity(bookWithQuantity);
-        // }
+        
         break;
       }
       case "CANCEL_ORDER": {

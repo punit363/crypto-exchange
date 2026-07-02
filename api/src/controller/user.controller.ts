@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { generateUserId } from "../utils";
 import { UserData } from "../types/types";
 import bcrypt from "bcrypt";
-import { prisma } from "../prisma";
+import { prisma } from "../../../db/prisma";
 
 const registerUser = async (req: Request, res: Response): Promise<any> => {
   try {

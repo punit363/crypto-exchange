@@ -1,28 +1,37 @@
 import { Request, Response } from "express";
 import RedisHandler from "../redis";
 import { generateOrderId } from "../utils";
-import { prisma } from "../prisma";
+// import { prisma } from "../../../db/prisma";
 import { Prisma } from "@prisma/client";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { user_id, price, quantity, side, type, baseAsset, quoteAsset } = req.body;
+    const { user_id, price, quantity, side, type, baseAsset, quoteAsset } =
+      req.body;
 
-    if (!user_id || !price || !quantity || !side || !type || !baseAsset || !quoteAsset) {
+    if (
+      !user_id ||
+      !price ||
+      !quantity ||
+      !side ||
+      !type ||
+      !baseAsset ||
+      !quoteAsset
+    ) {
       return res.status(400).send({ error: "Missing required fields" });
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        user_id,
-      },
-    });
+    // const user = await prisma.user.findFirst({
+    //   where: {
+    //     user_id,
+    //   },
+    // });
 
-    if (!user) {
-      return res.status(404).send({
-        message: "User not found for the corresponding user_id",
-      });
-    }
+    // if (!user) {
+    //   return res.status(404).send({
+    //     message: "User not found for the corresponding user_id",
+    //   });
+    // }
 
     // if (side === "buy" && type === "limit") {
     //   const totalCost = new Prisma.Decimal(price).mul(quantity);

@@ -112,6 +112,6 @@
   },
   "exclude": [
     "node_modules",
-    "prisma.config.ts"
+    "../db/prisma.config.ts"
   ]
 }

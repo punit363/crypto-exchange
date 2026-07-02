@@ -1,0 +1,10 @@
+{
+  "name": "crypto-exchange",
+  "private": true,
+  "workspaces": [
+    "api",
+    "engine",
+    "db",
+    "sockets"
+  ]
+}
