@@ -9,42 +9,96 @@ generator client {
 }
 
 model User {
-  user_id    String   @id
-  first_name String
-  last_name  String
-  age        Int      
-  email      String   @unique
-  phone      String   @unique
-  password   String
-  balance      Decimal  @default(0.00)
-  balance_lock Decimal  @default(0.00)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  holdings     Holding[] 
+  user_id      String        @id
+  first_name   String
+  last_name    String
+  age          Int
+  email        String        @unique
+  phone        String        @unique
+  password     String
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  orders       Order[]
+  transactions  Transaction[]
+  balance_ledger BalanceLedger[]
+  taker_trades  Trade[]  @relation("TakerTrades")
+  maker_trades  Trade[]  @relation("MakerTrades")
   @@map("users")
 }
 
-model Asset {
-  symbol        String    @id 
-  name          String   
-  current_price Decimal   @default(0.00)
-  is_active     Boolean   @default(true)
-  holdings      Holding[] 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  @@map("assets")
+model Order {
+  order_id         String   @id
+  user_id          String
+  user             User     @relation(fields: [user_id], references: [user_id])
+  side             String   // buy | sell
+  type             String   // limit | market
+  quantity         Decimal
+  filled_quantity  Decimal  @default(0)        // ← track how much filled
+  price            Decimal
+  status           String   @default("open")   // ← open | partial | filled | cancelled
+  base_asset       String
+  quote_asset      String
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  trades           Trade[]  @relation("TakerOrder")
+  maker_trades     Trade[]  @relation("MakerOrder")
+  @@map("orders")
 }
 
-model Holding {
-  holding_id   String    @id @default(uuid())
-  user_id      String    
-  user         User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  asset_symbol String    
-  asset_data   Asset     @relation(fields: [asset_symbol], references: [symbol])
-  asset_balance      Decimal   @default(0.00)
-  asset_balance_lock Decimal   @default(0.00)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  @@unique([user_id, asset_symbol]) 
-  @@map("holdings")
+model Trade {
+  trade_id       String   @id
+  taker_user_id  String                        // ← rename for clarity
+  maker_user_id  String
+  taker_order_id String
+  maker_order_id String
+  taker_order    Order    @relation("TakerOrder", fields: [taker_order_id], references: [order_id])
+  maker_order    Order    @relation("MakerOrder", fields: [maker_order_id], references: [order_id])
+  taker_user     User     @relation("TakerTrades", fields: [taker_user_id], references: [user_id])
+  maker_user     User     @relation("MakerTrades", fields: [maker_user_id], references: [user_id])
+  quantity       Decimal
+  price          Decimal
+  base_asset     String
+  quote_asset    String
+  taker_side     String                        // ← which side the taker was on
+  created_at     DateTime @default(now())
+  @@map("trades")
+}
+
+model Candle {
+  candle_id   String   @id @default(uuid())
+  interval    String   // 1m | 5m | 1h | 1d
+  base_asset  String
+  quote_asset String
+  open        Decimal
+  high        Decimal
+  low         Decimal
+  close       Decimal
+  volume      Decimal
+  created_at  DateTime @default(now())         // ← bucket start time
+  @@unique([base_asset, quote_asset, interval, created_at])  // ← fixed
+  @@map("candles")
+}
+
+model Transaction {
+  tx_id      String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [user_id])
+  type       String   // deposit | withdrawal
+  asset      String   // INR | BTC
+  amount     Decimal
+  status     String   @default("pending")      // pending | completed | failed
+  created_at DateTime @default(now())          // ← consistent naming
+  @@map("transactions")
+}
+
+model BalanceLedger {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [user_id])
+  asset      String   // INR | BTC
+  amount     Decimal  // positive = credit, negative = debit
+  type       String   // deposit | withdrawal | trade_fill | fee
+  ref_id     String?  // trade_id or tx_id that caused this entry
+  created_at DateTime @default(now())
+  @@map("balance_ledger")
 }
