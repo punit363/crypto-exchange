@@ -1,5 +1,5 @@
 import { prisma } from "../client.js";
-import { Prisma } from "../generated/prisma/client.js";
+import { Prisma } from "@prisma/client";
 
 export const UserRepo = {
   findById: async (user_id: string) => {
