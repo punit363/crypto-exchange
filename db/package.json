@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+    "scripts": {
+      "generate": "prisma generate",
+      "build": "tsc",
+      "dev": "npm run build && node dist/index.js",
+      "dev:watch": "tsx watch src/index.ts"
+    },
   "author": "punit",
   "license": "ISC",
   "description": "",

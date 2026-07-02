@@ -1,6 +1,6 @@
 //Initiating db
 
-import RedisHandler from "./redis";
+import RedisHandler from "./redis.js";
 
 const dbMain = async () => {
   const redis = await RedisHandler.createInstance();
@@ -14,7 +14,7 @@ const dbMain = async () => {
 
 dbMain();
 
-export { prisma } from "./client";
+export { prisma } from "./client.js";
 // export { UserRepo } from "./repositories/user.repo"
 // export { OrderRepo } from "./repositories/order.repo"
 // export { TradeRepo } from "./repositories/trade.repo"
