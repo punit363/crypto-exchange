@@ -1,23 +1,13 @@
 import { prisma } from "../client.js";
 import { Prisma } from "@prisma/client";
+import { Candle } from "../types/types.js";
 
 export const CancelRepo = {
   findById: async (candle_id: string) => {
     return prisma.candle.findUnique({ where: { candle_id } });
   },
 
-  create: async (data: {
-    candle_id: string;
-    interval: string;
-    user_id: string;
-    base_asset: string;
-    quote_asset: string;
-    open: Prisma.Decimal;
-    high: Prisma.Decimal;
-    low: Prisma.Decimal;
-    close: Prisma.Decimal;
-    volume: Prisma.Decimal;
-  }) => {
+  create: async (data: Candle) => {
     return prisma.candle.create({ data });
   },
 };

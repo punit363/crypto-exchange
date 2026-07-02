@@ -141,8 +141,8 @@ class Engine {
   constructor() {
     try {
       const snapshot = fs.readFileSync("./snapshot.json", "utf-8");
-      const parsed = JSON.parse(snapshot); 
-  
+      const parsed = JSON.parse(snapshot);
+
       this.orderbooks = parsed.orderbooks.map(
         (ob: any) =>
           new Orderbook(
@@ -154,14 +154,14 @@ class Engine {
             ob.currentPrice
           )
       );
-  
-      balance = new Map<string, UserBalance>(parsed.balances); 
-      } catch {
+
+      balance = new Map<string, UserBalance>(parsed.balances);
+    } catch {
       // No snapshot found, start fresh
       this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
       console.log("No snapshot found, starting fresh");
     }
-  
+
     setInterval(() => {
       const currentSnapshot = {
         orderbooks: this.orderbooks.map((ob) => ({
@@ -172,10 +172,10 @@ class Engine {
           lastTradeId: ob.lastTradeId,
           currentPrice: ob.currentPrice,
         })),
-        balances: Array.from(balance.entries()), 
+        balances: Array.from(balance.entries()),
       };
-  
-      fs.writeFileSync("./snapshot.json", JSON.stringify(currentSnapshot)); 
+
+      fs.writeFileSync("./snapshot.json", JSON.stringify(currentSnapshot));
     }, 1000 * 3);
   }
 
@@ -202,13 +202,16 @@ class Engine {
           throw new Error("No orderbook found");
         }
 
+        const { price, quantity, side, type, baseAsset, quoteAsset } =
+          order.order_data;
+
         checkAndLockBalance(
           order.user_id,
-          order.order_data.quantity,
-          order.order_data.price,
-          order.order_data.side,
-          order.order_data.quoteAsset,
-          order.order_data.baseAsset
+          quantity,
+          price,
+          side,
+          quoteAsset,
+          baseAsset
         );
 
         const {
@@ -233,8 +236,33 @@ class Engine {
           unused_market_order_amount,
         });
         await redis.publishTrade(fills);
-        await redis.sendTradeToDB(fills);
-        
+        console.log("db-data-------------------", {
+          order_id,
+          user_id: order.user_id,
+          side,
+          type,
+          quantity,
+          filled_quantity: 0,
+          price,
+          status: "open",
+          base_asset: baseAsset,
+          quote_asset: quoteAsset,
+        });
+        await redis.sendToDB({
+          action: "PLACE_ORDER",
+          order: {
+            order_id,
+            user_id: order.user_id,
+            side,
+            type,
+            quantity,
+            filled_quantity: 0,
+            price,
+            status: "open",
+            base_asset: baseAsset,
+            quote_asset: quoteAsset,
+          },
+        });
         break;
       }
       case "CANCEL_ORDER": {

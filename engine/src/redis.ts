@@ -34,8 +34,8 @@ class RedisHandler {
     return order;
   };
 
-  sendTradeToDB = async (trade: any) => {
-    const order = await this.client.lPush("db_trade", JSON.stringify(trade));
+  sendToDB = async (data: any) => {
+    const order = await this.client.lPush("db_update", JSON.stringify(data));
     return order;
   };
 

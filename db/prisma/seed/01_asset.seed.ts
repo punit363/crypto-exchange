@@ -2,11 +2,26 @@ import { prisma } from "../../src/client";
 
 export async function seedAssets() {
   // Upsert to avoid duplicates on re-runs
-  await prisma.asset.createMany({
+  await prisma.user.createMany({
     data: [
-      { symbol: "BTC", name: "Bitcoin", current_price: 65000.0 },
-      { symbol: "ETH", name: "Ethereum", current_price: 3500.0 },
-      { symbol: "DOGE", name: "Doge Coin", current_price: 1.0 },
+      {
+        user_id: "usr_6q9g3syt014",
+        first_name: "punit",
+        last_name: "pawar",
+        age: 23,
+        email: "email.com",
+        phone: "+91 9098929549",
+        password: "hashedPassword1",
+      },
+      {
+        user_id: "usr_xslwr9hnet",
+        first_name: "test",
+        last_name: "test",
+        age: 23,
+        email: "test.com",
+        phone: "+92 9098929549",
+        password: "hashedPassword1",
+      },
     ],
     skipDuplicates: true,
   });

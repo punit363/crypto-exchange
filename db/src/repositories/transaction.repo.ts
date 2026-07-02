@@ -1,19 +1,12 @@
 import { prisma } from "../client.js";
-import { Prisma } from "@prisma/client";
+import { Transaction } from "../types/types.js";
 
 export const TransactionRepo = {
   findById: async (tx_id: string) => {
     return prisma.transaction.findUnique({ where: { tx_id } });
   },
 
-  create: async (data: {
-    tx_id: string;
-    user_id: string;
-    type: string;
-    asset: string;
-    amount: Prisma.Decimal;
-    status: string;
-  }) => {
+  create: async (data: Transaction) => {
     return prisma.transaction.create({ data });
   },
 };

@@ -1,4 +1,5 @@
 import { prisma } from "../client.js";
+import { User } from "../types/types.js";
 
 export const UserRepo = {
   findById: async (user_id: string) => {
@@ -9,15 +10,7 @@ export const UserRepo = {
     return prisma.user.findUnique({ where: { email } });
   },
 
-  create: async (data: {
-    user_id: string;
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    age: number;
-    phone: string;
-  }) => {
+  create: async (data:User) => {
     return prisma.user.create({ data });
   },
 };
