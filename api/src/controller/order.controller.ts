@@ -103,16 +103,19 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
     };
 
     const order_response = (await redis.sendAndAwait({
-      action: "PLACE_ORDER",
-      user_id,
-      order_data: {
-        order_id,
-        price,
-        quantity,
-        side,
-        type,
-        baseAsset,
-        quoteAsset,
+      type: "ORDER",
+      order: {
+        action: "PLACE_ORDER",
+        user_id,
+        order_data: {
+          order_id,
+          price,
+          quantity,
+          side,
+          type,
+          baseAsset,
+          quoteAsset,
+        },
       },
     })) as OrderResponse;
 
@@ -270,29 +273,29 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-const cancelOrder = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { order_id, user_id } = req.body;
+// const cancelOrder = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { order_id, user_id } = req.body;
 
-    if (!order_id) {
-      return res.status(400).send({ error: "Missing required fields" });
-    }
+//     if (!order_id) {
+//       return res.status(400).send({ error: "Missing required fields" });
+//     }
 
-    const redis = await RedisHandler.createInstance();
-    const order_response = await redis.sendAndAwait({
-      action: "CANCEL_ORDER",
-      user_id,
-      order_data: {
-        order_id,
-      },
-    });
+//     const redis = await RedisHandler.createInstance();
+//     const order_response = await redis.sendAndAwait({
+//       action: "CANCEL_ORDER",
+//       user_id,
+//       order_data: {
+//         order_id,
+//       },
+//     });
 
-    console.log(order_response, "Order response");
-    return res.send({ data: order_response });
-  } catch (error) {
-    console.error("Error in order/cancelOrder:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
-  }
-};
+//     console.log(order_response, "Order response");
+//     return res.send({ data: order_response });
+//   } catch (error) {
+//     console.error("Error in order/cancelOrder:", error);
+//     return res.status(500).send({ error: "Internal Server Error" });
+//   }
+// };
 
-export { placeOrder, cancelOrder };
+export { placeOrder };

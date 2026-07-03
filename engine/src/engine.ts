@@ -156,14 +156,10 @@ const addCandlesToDB = async (
 ) => {
   const market = `${baseAsset}_${quoteAsset}`;
   let currentCandle = activeCandles.get(market);
-  console.log("addCandlesToDB-------1")
-  
+
   for (const fill of fills) {
     if (!currentCandle || currentCandle.bucket_time < fill.bucketTime) {
-      console.log("addCandlesToDB-------2")
       if (currentCandle) {
-        //save to db logic
-        console.log()
         const redis = await RedisHandler.createInstance();
         await redis.sendToDB({
           action: "ADD_CANDLE",
@@ -191,7 +187,6 @@ const addCandlesToDB = async (
         vol: fill.quantity,
       };
     } else {
-      console.log("addCandlesToDB-------4")
       currentCandle.low = Math.min(currentCandle.low, fill.price);
       currentCandle.high = Math.max(currentCandle.high, fill.price);
       currentCandle.close = fill.price;
@@ -201,6 +196,22 @@ const addCandlesToDB = async (
   }
 };
 
+type Transaction = {
+  tx_id: string;
+  user_id: string;
+  asset: string;
+  type: string;
+  amount: number;
+};
+
+const addTransactionInDB = async (transaction: Transaction) => {
+  console.log("send to db============", transaction);
+  const redis = await RedisHandler.createInstance();
+  await redis.sendToDB({
+    action: "ADD_TRANSACTION",
+    transaction,
+  });
+};
 class Engine {
   orderbooks: Orderbook[] = [];
 
@@ -245,19 +256,22 @@ class Engine {
     }, 1000 * 3);
   }
 
-  processOrder = async (order: {
-    action: string;
-    user_id: string;
-    order_data: {
-      order_id: any;
-      price?: any;
-      quantity?: any;
-      side?: any;
-      type?: any;
-      baseAsset?: any;
-      quoteAsset?: any;
-    };
-  }) => {
+  processOrder = async (
+    order: {
+      action: string;
+      user_id: string;
+      order_data: {
+        order_id: any;
+        price?: any;
+        quantity?: any;
+        side?: any;
+        type?: any;
+        baseAsset?: any;
+        quoteAsset?: any;
+      };
+    },
+    engine_request_id: string
+  ) => {
     switch (order.action) {
       case "PLACE_ORDER": {
         const orderbook = this.orderbooks.find(
@@ -295,12 +309,15 @@ class Engine {
         );
 
         const redis = await RedisHandler.createInstance();
-        await redis.sendOrderResponse({
-          order_id,
-          fills,
-          unsold_market_order_quanity,
-          unused_market_order_amount,
-        });
+        await redis.sendApiResponse(
+          {
+            order_id,
+            fills,
+            unsold_market_order_quanity,
+            unused_market_order_amount,
+          },
+          engine_request_id
+        );
         await redis.publishTrade(fills);
 
         await redis.sendToDB({
@@ -353,13 +370,87 @@ class Engine {
         const { order_id } = orderbook.cancelOrder(order.order_data);
 
         const redis1 = await RedisHandler.createInstance();
-        await redis1.sendOrderResponse({
-          order_id,
-          message: "Order cancelled successfully",
-        });
+        await redis1.sendApiResponse(
+          {
+            order_id,
+            message: "Order cancelled successfully",
+          },
+          engine_request_id
+        );
         break;
       }
     }
+  };
+
+  processBalanceUpdate = async (
+    transaction: {
+      tx_id: string;
+      user_id: string;
+      asset: string;
+      type: string;
+      amount: number;
+    },
+    engine_request_id:string
+  ) => {
+    const { tx_id, user_id, asset, type, amount } = transaction;
+
+    const user_balance: UserBalance | any = balance.get(user_id);
+    let message, status;
+
+    console.log("transaction started-------------", transaction);
+    console.log("user balance found-------------", user_balance);
+
+    if (user_balance && type === "deposit") {
+      status = "SUCCESS";
+      user_balance[asset].available += amount;
+      console.log("deosit started-------------", user_balance[asset].available);
+
+      await addTransactionInDB({
+        tx_id,
+        user_id,
+        asset,
+        type,
+        amount,
+      });
+    } else if (user_balance && type === "withdraw") {
+      if (user_balance[asset].available < amount) {
+        message = "You do not have sufficient balance";
+        status = "FAILED";
+      } else {
+        user_balance[asset].available -= amount;
+        status = "SUCCESS";
+        await addTransactionInDB({
+          tx_id,
+          user_id,
+          asset,
+          type,
+          amount,
+        });
+      }
+      console.log(
+        "withdrawal started-------------",
+        user_balance[asset].available
+      );
+    } else {
+      status = "FAILED";
+      message = "Invalid transaction type or user balance does not exist";
+    }
+    balance.set(user_id, user_balance);
+    console.log("return===========", {
+      current_balance: user_balance,
+      message,
+      status,
+    });
+
+    const redis = await RedisHandler.createInstance();
+    await redis.sendApiResponse(
+      {
+        current_balance: user_balance,
+        message,
+        status,
+      },
+      engine_request_id
+    );
   };
 }
 

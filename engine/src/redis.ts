@@ -21,17 +21,28 @@ class RedisHandler {
     return RedisHandler.instance;
   };
 
-  sendOrderResponse = async (order_response: any) => {
-    console.log(order_response, "publisher");
+  sendApiResponse = async (engine_response: any,engine_request_id:string) => {
+    console.log(engine_response, "publisher");
     await this.publisher.publish(
-      order_response.order_id,
-      JSON.stringify(order_response)
+      engine_request_id,
+      JSON.stringify(engine_response)
     );
   };
 
   getOrderFromQueue = async () => {
     const order = await this.client.brPop("order", 0);
     return order;
+  };
+
+  getMessage = async () => {
+    const message = await this.client.brPop("message", 0);
+    return message;
+  };
+
+  getBalanceUpdateFromQueue = async () => {
+    const balance = await this.client.brPop("balance", 0);
+    console.log("balance redis engine-----------",balance)
+    return balance;
   };
 
   sendToDB = async (data: any) => {

@@ -24,4 +24,18 @@ type UserData = {
   password: string;
 };
 
-export { OrderToEngine, UserData };
+type BalanceUpdate = {
+  tx_id: string;
+  user_id: string;
+  asset: string;
+  type: string;
+  amount: number;
+};
+
+type EngineRequest = {
+  type: string;
+  order?: OrderToEngine;
+  transaction?: BalanceUpdate;
+}
+
+export { OrderToEngine, UserData, BalanceUpdate, EngineRequest };

@@ -1,5 +1,6 @@
 import { createClient, RedisClientType } from "redis";
-import { OrderToEngine } from "./types/types";
+import { EngineRequest } from "./types/types";
+import { generateEngineRequestId } from "./utils";
 
 class RedisHandler {
   private client!: RedisClientType;
@@ -29,14 +30,19 @@ class RedisHandler {
     return this.instance;
   };
 
-  sendAndAwait = async (order: OrderToEngine) => {
-    await this.client.lPush("order", JSON.stringify(order));
-    console.log(order.order_data.order_id, "order.order_data.order_id");
+  sendAndAwait = async (data: EngineRequest) => {
+    const engineRequestId = generateEngineRequestId();
+    const engine_data = {
+      engine_request_id: engineRequestId,
+      ...data,
+    };
+    await this.client.lPush("message", JSON.stringify(engine_data));
+    console.log(engine_data, "engine_data");
     return new Promise((resolve, reject) => {
-      this.subscriber.subscribe(order.order_data.order_id, async (message) => {
+      this.subscriber.subscribe(engineRequestId, async (message) => {
         try {
           console.log(message, "message");
-          await this.subscriber.unsubscribe(order.order_data.order_id);
+          await this.subscriber.unsubscribe(engineRequestId);
           console.log(message, "message");
           resolve(JSON.parse(message));
         } catch (err) {
