@@ -1,5 +1,6 @@
 import { verifyConnection } from "./client.js";
 import RedisHandler from "./redis.js";
+import { CandleRepo } from "./repositories/candel.repo.js";
 import { OrderRepo } from "./repositories/order.repo.js";
 import { TradeRepo } from "./repositories/trade.repo.js";
 import {
@@ -33,7 +34,6 @@ const dbMain = async () => {
       switch (db_data.action) {
         case "ADD_ORDER": {
           const order_data = db_data.order;
-          console.log("order-data----------------------", order_data);
           if (order_data) {
             await OrderRepo.create(order_data);
           } else {
@@ -43,12 +43,21 @@ const dbMain = async () => {
         }
         case "ADD_TRADES": {
           const trade_data = db_data.trades;
-          console.log("trade-data----------------------", trade_data);
           if (trade_data) {
-            console.log("trade-data----------------------2", trade_data);
             for (const trade of trade_data) {
               await TradeRepo.create(trade);
             }
+          } else {
+            throw Error("Trade Data not Found");
+          }
+          break;
+        }
+        case "ADD_CANDLE": {
+          const candle_data = db_data.candle;
+          console.log("candle-data----------------------", candle_data);
+          if (candle_data) {
+            console.log("candle-data----------------------2", candle_data);
+              await CandleRepo.create(candle_data);
           } else {
             throw Error("Trade Data not Found");
           }

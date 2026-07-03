@@ -35,7 +35,6 @@ interface Trade {
 interface Candle {
   candle_id: string;
   interval: string;
-  user_id: string;
   base_asset: string;
   quote_asset: string;
   open: Prisma.Decimal;

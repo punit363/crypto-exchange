@@ -2,6 +2,7 @@ import fs from "fs";
 import { Orderbook, Fills } from "./orderbook";
 import RedisHandler from "./redis";
 import { snapshot } from "node:test";
+import { generateCandleId } from "./utils";
 
 interface UserBalance {
   [key: string]: {
@@ -135,6 +136,71 @@ const settleBalanceAfterTrade = (
   }
 };
 
+type Candle = {
+  bucket_time: number;
+  quote_asset: string;
+  base_asset: string;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+  vol: number;
+};
+
+const activeCandles = new Map<string, Candle>();
+
+const addCandlesToDB = async (
+  fills: Fills[],
+  baseAsset: string,
+  quoteAsset: string
+) => {
+  const market = `${baseAsset}_${quoteAsset}`;
+  let currentCandle = activeCandles.get(market);
+  console.log("addCandlesToDB-------1")
+  
+  for (const fill of fills) {
+    if (!currentCandle || currentCandle.bucket_time < fill.bucketTime) {
+      console.log("addCandlesToDB-------2")
+      if (currentCandle) {
+        //save to db logic
+        console.log()
+        const redis = await RedisHandler.createInstance();
+        await redis.sendToDB({
+          action: "ADD_CANDLE",
+          candle: {
+            candle_id: generateCandleId(),
+            interval: "1m",
+            base_asset: baseAsset,
+            quote_asset: quoteAsset,
+            open: currentCandle.open,
+            high: currentCandle.high,
+            low: currentCandle.low,
+            close: currentCandle.close,
+            volume: currentCandle.vol,
+          },
+        });
+      }
+      currentCandle = {
+        bucket_time: fill.bucketTime,
+        quote_asset: quoteAsset,
+        base_asset: baseAsset,
+        open: fill.price,
+        close: fill.price,
+        high: fill.price,
+        low: fill.price,
+        vol: fill.quantity,
+      };
+    } else {
+      console.log("addCandlesToDB-------4")
+      currentCandle.low = Math.min(currentCandle.low, fill.price);
+      currentCandle.high = Math.max(currentCandle.high, fill.price);
+      currentCandle.close = fill.price;
+      currentCandle.vol += fill.quantity;
+    }
+    activeCandles.set(market, currentCandle);
+  }
+};
+
 class Engine {
   orderbooks: Orderbook[] = [];
 
@@ -254,6 +320,8 @@ class Engine {
         });
 
         if (fills.length > 0) {
+          addCandlesToDB(fills, baseAsset, quoteAsset);
+
           const trades = fills.map((fill) => ({
             trade_id: fill.tradeId,
             user_id: fill.userId,

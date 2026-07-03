@@ -24,6 +24,7 @@ interface Fills {
   tradeId: string;
   orderId: string;
   otherOrderId: string;
+  bucketTime: number;
 }
 
 class Orderbook {
@@ -62,6 +63,12 @@ class Orderbook {
     }
   };
 
+  getBucketTime = () => {
+    const tradeTime = new Date().getTime();
+    const bucketTime = tradeTime - (tradeTime % 60000);
+    return bucketTime;
+  };
+
   executeSellOrder = (
     user_id: string,
     order_data: {
@@ -97,6 +104,7 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          bucketTime: this.getBucketTime(),
         });
         quantity -= fillQuantity;
         if (o.quantity === 0) {
@@ -173,6 +181,7 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          bucketTime: this.getBucketTime(),
         });
         quantity -= fillQuantity;
 
@@ -198,6 +207,7 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          bucketTime: this.getBucketTime(),
         });
         quantity -= fillQuantity;
 
