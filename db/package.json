@@ -7,7 +7,7 @@
   "scripts": {
     "generate": "prisma generate",
     "build": "tsc",
-    "dev": "npm run build && node dist/index.js",
+    "dev": "npm run build && node dist/worker.js",
     "seed":"npx prisma db seed",
     "dev:watch": "tsx watch src/index.ts"
   },

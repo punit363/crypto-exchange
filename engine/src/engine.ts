@@ -17,11 +17,11 @@ const balance_arr: [string, UserBalance][] = [
     "usr_6q9g3syt014",
     {
       INR: {
-        available: 10000,
+        available: 100000,
         locked: 0,
       },
       BTC: {
-        available: 100,
+        available: 10000,
         locked: 0,
       },
     },
@@ -30,11 +30,11 @@ const balance_arr: [string, UserBalance][] = [
     "usr_xslwr9hnet",
     {
       INR: {
-        available: 20000,
+        available: 200000,
         locked: 0,
       },
       BTC: {
-        available: 200,
+        available: 20000,
         locked: 0,
       },
     },
@@ -236,20 +236,9 @@ class Engine {
           unused_market_order_amount,
         });
         await redis.publishTrade(fills);
-        console.log("db-data-------------------", {
-          order_id,
-          user_id: order.user_id,
-          side,
-          type,
-          quantity,
-          filled_quantity: 0,
-          price,
-          status: "open",
-          base_asset: baseAsset,
-          quote_asset: quoteAsset,
-        });
+
         await redis.sendToDB({
-          action: "PLACE_ORDER",
+          action: "ADD_ORDER",
           order: {
             order_id,
             user_id: order.user_id,
@@ -263,6 +252,26 @@ class Engine {
             quote_asset: quoteAsset,
           },
         });
+
+        if (fills.length > 0) {
+          const trades = fills.map((fill) => ({
+            trade_id: fill.tradeId,
+            user_id: fill.userId,
+            other_user_id: fill.otherUserId,
+            order_id: fill.orderId,
+            other_order_id: fill.otherOrderId,
+            price: fill.price,
+            quantity: fill.quantity,
+            base_asset: baseAsset,
+            quote_asset: quoteAsset,
+            side,
+          }));
+
+          await redis.sendToDB({
+            action: "ADD_TRADES",
+            trades,
+          });
+        }
         break;
       }
       case "CANCEL_ORDER": {

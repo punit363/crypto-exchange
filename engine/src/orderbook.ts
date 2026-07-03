@@ -22,6 +22,8 @@ interface Fills {
   userId: string;
   otherUserId: string;
   tradeId: string;
+  orderId: string;
+  otherOrderId: string;
 }
 
 class Orderbook {
@@ -85,12 +87,16 @@ class Orderbook {
         o.quantity -= fillQuantity;
         bookWithQuantity.bids[o.price] =
           (bookWithQuantity.bids[o.price] || 0) - fillQuantity;
+
+        const tradeId = generateTradeId();
         fills.push({
           price: o.price,
           quantity: fillQuantity,
           tradeId,
           userId: user_id,
           otherUserId: o.userID,
+          orderId: order_id,
+          otherOrderId: o.orderId,
         });
         quantity -= fillQuantity;
         if (o.quantity === 0) {
@@ -148,7 +154,6 @@ class Orderbook {
     let unused_market_order_amount;
     const ask_splice_indexes: number[] = [];
 
-    const tradeId = generateTradeId();
     let i = 0;
 
     for (const [idx, o] of this.asks.entries()) {
@@ -158,6 +163,7 @@ class Orderbook {
         o.quantity -= fillQuantity;
         bookWithQuantity.asks[o.price] =
           (bookWithQuantity.asks[o.price] || 0) - fillQuantity;
+        const tradeId = generateTradeId();
 
         fills.push({
           price: o.price,
@@ -165,6 +171,8 @@ class Orderbook {
           tradeId,
           userId: user_id,
           otherUserId: o.userID,
+          orderId: order_id,
+          otherOrderId: o.orderId,
         });
         quantity -= fillQuantity;
 
@@ -180,6 +188,7 @@ class Orderbook {
         o.quantity -= fillQuantity;
         bookWithQuantity.asks[o.price] =
           (bookWithQuantity.asks[o.price] || 0) - fillQuantity;
+        const tradeId = generateTradeId();
 
         fills.push({
           price: o.price,
@@ -187,6 +196,8 @@ class Orderbook {
           tradeId,
           userId: user_id,
           otherUserId: o.userID,
+          orderId: order_id,
+          otherOrderId: o.orderId,
         });
         quantity -= fillQuantity;
 
