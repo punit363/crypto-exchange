@@ -318,8 +318,20 @@ class Engine {
           },
           engine_request_id
         );
-        await redis.publishTrade(fills);
-        await redis.publishOrderBookWithQuantity(orderbook.getBookWithQuantity());
+
+        const trade_publish_data = {
+          market: `${baseAsset}_${quoteAsset}`,
+          trade:fills,
+        };
+        const book_with_quantity_publish_data = {
+          market: `${baseAsset}_${quoteAsset}`,
+          book: orderbook.getBookWithQuantity(),
+        };
+
+        await redis.publishTrade(trade_publish_data);
+        await redis.publishOrderBookWithQuantity(
+          book_with_quantity_publish_data
+        );
 
         await redis.sendToDB({
           action: "ADD_ORDER",
@@ -391,7 +403,7 @@ class Engine {
       type: string;
       amount: number;
     },
-    engine_request_id:string
+    engine_request_id: string
   ) => {
     const { tx_id, user_id, asset, type, amount } = transaction;
 
