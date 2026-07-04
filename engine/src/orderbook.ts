@@ -69,6 +69,10 @@ class Orderbook {
     return bucketTime;
   };
 
+  getBookWithQuantity = () => {
+    return bookWithQuantity;
+  };
+
   executeSellOrder = (
     user_id: string,
     order_data: {

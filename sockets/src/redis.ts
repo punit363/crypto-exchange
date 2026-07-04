@@ -24,7 +24,6 @@ class RedisHandler {
   subscribeToTrade = async (callback: (data: any) => void) => {
     await this.tradeSubscriber.subscribe("trade", (message) => {
       console.log(message, "message");
-      this.tradeSubscriber.unsubscribe("trade");
       callback(JSON.parse(message));
     });
   };
@@ -32,7 +31,6 @@ class RedisHandler {
   subscribeToOrderbook = async (callback: (data: any) => void) => {
     await this.orderbookSubscriber.subscribe("book", (message) => {
       console.log(message, "message");
-      this.orderbookSubscriber.unsubscribe("book");
       callback(JSON.parse(message));
     });
   };

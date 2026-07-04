@@ -2,7 +2,7 @@
 import { WebSocketServer } from "ws";
 import RedisHandler from "./redis";
 
-const wss = new WebSocketServer({ port: 3001 });
+const wss = new WebSocketServer({ port: 7001 });
 wss.on("connection", async function connection(ws: any) {
   // ws.on("error", console.error);
   console.log("received: %s");

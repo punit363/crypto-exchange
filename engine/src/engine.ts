@@ -319,6 +319,7 @@ class Engine {
           engine_request_id
         );
         await redis.publishTrade(fills);
+        await redis.publishOrderBookWithQuantity(orderbook.getBookWithQuantity());
 
         await redis.sendToDB({
           action: "ADD_ORDER",
