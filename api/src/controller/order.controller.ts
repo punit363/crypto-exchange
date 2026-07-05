@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import RedisHandler from "../redis";
 import { generateOrderId } from "../utils";
 // import { prisma } from "../../../db/prisma";
-import { Prisma } from "@prisma/client";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {

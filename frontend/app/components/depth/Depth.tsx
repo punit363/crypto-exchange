@@ -1,25 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getDepth, getKlines, getTicker, getTrades } from "../../utils/httpClient";
-import { BidTable } from "./BidTable";
-import { AskTable } from "./AskTable";
+import { useEffect, useState, useMemo } from "react";
 import { wsClient } from "@/app/utils/wsClient";
 
-export function Depth({ market }: {market: string}) {
+export function Depth({ market }: { market: string }) {
     const [bids, setBids] = useState<[string, string][]>();
     const [asks, setAsks] = useState<[string, string][]>();
     const [price, setPrice] = useState<string>();
 
     useEffect(() => {
-
-        const handleBookUpdate = (data: any) => { // data is book_with_quantity
+        const handleBookUpdate = (data: any) => {
             setBids((prevBids) => {
                 const bidMap = new Map(prevBids || []);
                 
-                // Convert backend object { "210": 60 } to array and loop
                 Object.entries(data.bids || {}).forEach(([p, s]) => {
-                    // Force size to be string since state is [string, string][]
                     Number(s) === 0 ? bidMap.delete(p) : bidMap.set(p, String(s)); 
                 });
                 
@@ -37,7 +31,7 @@ export function Depth({ market }: {market: string}) {
             });
         };
 
-        const handleTradeUpdate = (fills: any[]) => { // data is fills array
+        const handleTradeUpdate = (fills: any[]) => {
             if (fills && fills.length > 0 && fills[0].price) {
                 setPrice(fills[0].price.toString());
             }
@@ -45,20 +39,94 @@ export function Depth({ market }: {market: string}) {
 
         wsClient.subscribe(market, "BOOK", handleBookUpdate);
         wsClient.subscribe(market, "TRADE", handleTradeUpdate);
-    }, [market]);
-    
-    return <div>
-        <TableHeader />
-        {asks && <AskTable asks={asks} />}
-        {price && <div>{price}</div>}
-        {bids && <BidTable bids={bids} />}
-    </div>
-}
 
-function TableHeader() {
-    return <div className="flex justify-between text-xs">
-    <div className="text-white">Price</div>
-    <div className="text-slate-500">Size</div>
-    <div className="text-slate-500">Total</div>
-</div>
+        return () => {
+            wsClient.unsubscribe(market, "BOOK", handleBookUpdate);
+            wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
+        };
+    }, [market]);
+
+    // 1. Process levels to calculate cumulative totals for the depth bars
+    const processLevels = (levels: [string, string][]) => {
+        let total = 0;
+        return levels.map(([priceStr, quantityStr]) => {
+            const numQty = Number(quantityStr);
+            total += numQty;
+            return {
+                price: Number(priceStr).toFixed(2),
+                quantity: numQty.toFixed(4),
+                total: total,
+            };
+        });
+    };
+
+    // Slice to top 15 so we don't render thousands of DOM nodes
+    const bidsWithTotal = useMemo(() => processLevels(bids?.slice(0, 15) || []), [bids]);
+    
+    // Asks are sorted ascending (lowest first). We calculate totals starting from the lowest ask, 
+    // then REVERSE the array so the lowest ask renders at the bottom, right above the spread.
+    const asksWithTotal = useMemo(() => processLevels(asks?.slice(0, 15) || []).reverse(), [asks]);
+
+    // 2. Find maximum total to dynamically scale the background depth bars
+    const maxTotal = Math.max(
+        asksWithTotal[0]?.total || 0, // After reversing, the largest total is at index 0
+        bidsWithTotal[bidsWithTotal.length - 1]?.total || 0
+    );
+
+    return (
+        <div className="flex flex-col w-full h-full bg-[#14151B] border-none font-mono text-[11px] select-none">
+
+            {/* Column Labels */}
+            <div className="flex flex-row justify-between text-slate-500 px-3 py-1">
+                <div className="flex-1 text-left">Price</div>
+                <div className="flex-1 text-right">Size</div>
+                <div className="flex-1 text-right">Total</div>
+            </div>
+
+            {/* ASKS (Selling - Red) */}
+            <div className="flex flex-col flex-1 overflow-hidden justify-end pb-1">
+                {asksWithTotal.map((ask, i) => {
+                    const barWidth = maxTotal > 0 ? (ask.total / maxTotal) * 100 : 0;
+                    return (
+                        <div key={`ask-${ask.price}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">
+                            <div 
+                                className="absolute right-0 top-0 h-full bg-[#F94D5C]/10 transition-all duration-300"
+                                style={{ width: `${barWidth}%` }}
+                            />
+                            <div className="flex-1 text-left text-[#F94D5C] tabular-nums z-10">{ask.price}</div>
+                            <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{ask.quantity}</div>
+                            <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{ask.total.toFixed(4)}</div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* SPREAD / LAST PRICE */}
+            <div className="flex items-center justify-between px-3 py-2 my-1 border-y border-slate-800/40 bg-[#0E1015]/50">
+                <span className={`text-[15px] font-semibold ${price ? 'text-[#00C278]' : 'text-slate-500'}`}>
+                    {price ? Number(price).toFixed(2) : "--"}
+                </span>
+                <span className="text-xs text-slate-500 line-through decoration-slate-600">Spread</span>
+            </div>
+
+            {/* BIDS (Buying - Green) */}
+            <div className="flex flex-col flex-1 overflow-hidden pt-1">
+                {bidsWithTotal.map((bid, i) => {
+                    const barWidth = maxTotal > 0 ? (bid.total / maxTotal) * 100 : 0;
+                    return (
+                        <div key={`bid-${bid.price}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">
+                            <div 
+                                className="absolute right-0 top-0 h-full bg-[#00C278]/10 transition-all duration-300"
+                                style={{ width: `${barWidth}%` }}
+                            />
+                            <div className="flex-1 text-left text-[#00C278] tabular-nums z-10">{bid.price}</div>
+                            <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{bid.quantity}</div>
+                            <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{bid.total.toFixed(4)}</div>
+                        </div>
+                    );
+                })}
+            </div>
+            
+        </div>
+    );
 }

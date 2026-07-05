@@ -1,48 +1,79 @@
 "use client";
 
+import { useState } from "react";
 import { MarketBar } from "@/app/components/MarketBar";
 import { SwapUI } from "@/app/components/SwapUI";
 import { TradeView } from "@/app/components/TradeView";
 import { Depth } from "@/app/components/depth/Depth";
-import { Trades } from "@/app/components/Trades"; // Imported our new component
+import { Trades } from "@/app/components/Trades";
 import { useParams } from "next/navigation";
 
 export default function Page() {
     const { market } = useParams();
+    const [activeTab, setActiveTab] = useState<'book' | 'trades'>('book');
     
     return (
-        <div className="flex flex-row flex-1">
-            <div className="flex flex-col flex-1">
+        // 1. CHANGED: Added h-[calc(100vh-64px)] (assuming a standard 64px top navbar). 
+        // If your page includes the navbar in this file, use h-screen instead.
+        <div className="flex flex-row flex-1 bg-[#0B0E11] h-[calc(100vh-64px)] overflow-hidden">
+            
+            <div className="flex flex-col flex-1 overflow-hidden">
                 <MarketBar market={market as string} />
-                <div className="flex flex-row h-[920px] border-y border-slate-800">
+                
+                {/* 2. CHANGED: Removed h-[920px] and replaced it with flex-1 overflow-hidden */}
+                <div className="flex flex-row flex-1 overflow-hidden border-y border-slate-800/50">
                     
                     {/* Left: Charting Area */}
-                    <div className="flex flex-col flex-1 border-r border-slate-800">
+                    <div className="flex flex-col flex-1 border-r border-slate-800/50 overflow-hidden">
                         <TradeView market={market as string} />
                     </div>
                     
-                    {/* Right: Orderbook & Recent Trades */}
-                    <div className="flex flex-col w-[250px] overflow-hidden">
+                    {/* Middle: Tabbed Orderbook / Trades Panel */}
+                    <div className="flex flex-col w-[300px] overflow-hidden bg-[#14151B]">
                         
-                        {/* Top Half: Orderbook */}
-                        <div className="flex-1 overflow-hidden flex flex-col">
-                            <Depth market={market as string} /> 
+                        <div className="flex flex-row justify-between text-slate-500 px-3 pt-3 pb-2 border-b border-slate-800/50 font-sans text-xs shrink-0">
+                            <div className="flex gap-4">
+                                <span 
+                                    onClick={() => setActiveTab('book')}
+                                    className={`font-medium cursor-pointer transition-colors ${activeTab === 'book' ? 'text-white' : 'hover:text-slate-300'}`}
+                                >
+                                    Book
+                                </span>
+                                <span 
+                                    onClick={() => setActiveTab('trades')}
+                                    className={`font-medium cursor-pointer transition-colors ${activeTab === 'trades' ? 'text-white' : 'hover:text-slate-300'}`}
+                                >
+                                    Trades
+                                </span>
+                            </div>
+                            
+                            {activeTab === 'book' && (
+                                <div className="flex items-center gap-1 bg-[#1E2026] px-1.5 py-0.5 rounded text-[10px] text-white">
+                                    <span>0.01</span>
+                                </div>
+                            )}
                         </div>
                         
-                        {/* Bottom Half: Live Trades */}
-                        <div className="flex-1 overflow-hidden border-t border-slate-800 flex flex-col">
-                            <Trades market={market as string} />
+                        <div className="flex-1 overflow-hidden flex flex-col relative">
+                            <div className={`absolute inset-0 flex flex-col ${activeTab === 'book' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
+                                <Depth market={market as string} /> 
+                            </div>
+                            
+                            <div className={`absolute inset-0 flex flex-col ${activeTab === 'trades' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
+                                <Trades market={market as string} />
+                            </div>
                         </div>
                         
                     </div>
                 </div>
             </div>
             
-            <div className="w-[10px] flex-col border-slate-800 border-l"></div>
+            <div className="w-[1px] flex-col bg-slate-800/50 shrink-0"></div>
             
             {/* Far Right: Order Entry / Swap UI */}
-            <div>
-                <div className="flex flex-col w-[250px]">
+            {/* 3. CHANGED: Added overflow-y-auto so ONLY the order form scrolls if it's too tall on tiny screens */}
+            <div className="bg-[#14151B] w-[300px] overflow-y-auto overflow-x-hidden">
+                <div className="flex flex-col p-2">
                     <SwapUI market={market as string} />
                 </div>
             </div>
