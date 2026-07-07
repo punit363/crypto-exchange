@@ -1,21 +1,28 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Ticker as TickerType } from "../utils/types"; // Aliased to prevent collision with Ticker component
-import { getTicker } from "../utils/httpClient";
-import { wsClient } from "../utils/wsClient"; // Updated import
 
-export const MarketBar = ({market}: {market: string}) => {
+import { useEffect, useState } from "react";
+import { Ticker as TickerType } from "../utils/types";
+import { getTicker } from "../utils/httpClient";
+import { wsClient } from "../utils/wsClient";
+
+export const MarketBar = ({ market }: { market: string }) => {
     const [ticker, setTicker] = useState<TickerType | null>(null);
 
     useEffect(() => {
+        let isMounted = true;
+
         // 1. Fetch initial snapshot
-        getTicker(market).then(setTicker);
+        getTicker(market).then((data) => {
+            if (isMounted) setTicker(data);
+        }).catch(console.error);
 
         // 2. Ensure WebSocket is connected
         wsClient.connect();
 
-        // 3. Define the update handler
+        // 3. Define the update handler using your robust mapping
         const handleTickerUpdate = (data: Partial<TickerType>) => {
+            if (!isMounted) return;
+            
             setTicker(prevTicker => ({
                 firstPrice: data?.firstPrice ?? prevTicker?.firstPrice ?? '',
                 high: data?.high ?? prevTicker?.high ?? '',
@@ -30,61 +37,103 @@ export const MarketBar = ({market}: {market: string}) => {
             }));
         };
 
-        // 4. Subscribe using the new wsClient
+        // 4. Subscribe
         wsClient.subscribe(market, "TICKER", handleTickerUpdate);
 
-        // 5. Cleanup on unmount
+        // 5. Cleanup
         return () => {
+            isMounted = false;
             wsClient.unsubscribe(market, "TICKER", handleTickerUpdate);
-        }
+        };
     }, [market]);
     
-    return <div>
-        <div className="flex items-center flex-row relative w-full overflow-hidden border-b border-slate-800">
-            <div className="flex items-center justify-between flex-row no-scrollbar overflow-auto pr-4">
-                    <Ticker market={market} />
-                    <div className="flex items-center flex-row space-x-8 pl-4">
-                        <div className="flex flex-col h-full justify-center">
-                            <p className={`font-medium tabular-nums text-greenText text-md text-green-500`}>${ticker?.lastPrice}</p>
-                            <p className="font-medium text-sm text-sm tabular-nums">${ticker?.lastPrice}</p>
-                        </div>
-                        <div className="flex flex-col">
-                            <p className={`font-medium text-xs text-slate-400 text-sm`}>24H Change</p>
-                            <p className={` text-sm font-medium tabular-nums leading-5 text-sm text-greenText ${Number(ticker?.priceChange) > 0 ? "text-green-500" : "text-red-500"}`}>{Number(ticker?.priceChange) > 0 ? "+" : ""} {ticker?.priceChange} {Number(ticker?.priceChangePercent)?.toFixed(2)}%</p></div><div className="flex flex-col">
-                                <p className="font-medium text-xs text-slate-400 text-sm">24H High</p>
-                                <p className="text-sm font-medium tabular-nums leading-5 text-sm ">{ticker?.high}</p>
-                                </div>
-                                <div className="flex flex-col">
-                                    <p className="font-medium text-xs text-slate-400 text-sm">24H Low</p>
-                                    <p className="text-sm font-medium tabular-nums leading-5 text-sm ">{ticker?.low}</p>
-                                </div>
-                            <button type="button" className="font-medium transition-opacity hover:opacity-80 hover:cursor-pointer text-base text-left" data-rac="">
-                                <div className="flex flex-col">
-                                    <p className="font-medium text-xs text-slate-400 text-sm">24H Volume</p>
-                                    <p className="mt-1 text-sm font-medium tabular-nums leading-5 text-sm ">{ticker?.volume}
-                                </p>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-}
+    // Safely parse numbers to prevent NaN%
+    const changeAmount = Number(ticker?.priceChange || 0);
+    const changePercent = Number(ticker?.priceChangePercent || 0);
+    const isPositive = changeAmount >= 0;
 
-function Ticker({market}: {market: string}) {
-    return <div className="flex h-[60px] shrink-0 space-x-4">
-        <div className="flex flex-row relative ml-2 -mr-4">
-            <img alt="SOL Logo" loading="lazy" decoding="async" data-nimg="1" className="z-10 rounded-full h-6 w-6 mt-4 outline-baseBackgroundL1"  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s" />
-            <img alt="USDC Logo" loading="lazy"decoding="async" data-nimg="1" className="h-6 w-6 -ml-2 mt-4 rounded-full" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s" />
-        </div>
-        <button type="button" className="react-aria-Button" data-rac="">
-            <div className="flex items-center justify-between flex-row cursor-pointer rounded-lg p-3 hover:opacity-80">
-                <div className="flex items-center flex-row gap-2 undefined">
-                    <div className="flex flex-row relative">
-                        <p className="font-medium text-sm undefined">{market.replace("_", " / ")}</p>
+    return (
+        <div className="flex flex-row items-center w-full h-[64px] bg-[#14151B] border-b border-slate-800/50 overflow-hidden">
+            <div className="flex items-center flex-row overflow-x-auto no-scrollbar w-full">
+                
+                {/* 1. Coin Logos & Title (Your Ticker Component) */}
+                <Ticker market={market} />
+                
+                <div className="flex items-center flex-row space-x-8 pl-6">
+                    
+                    {/* 2. Last Price */}
+                    <div className="flex flex-col justify-center">
+                        <p className={`font-semibold text-lg tabular-nums ${isPositive ? "text-[#00C278]" : "text-[#F94D5C]"}`}>
+                            {ticker?.lastPrice ? Number(ticker.lastPrice).toFixed(2) : "--"}
+                        </p>
+                        <p className="font-medium text-xs text-slate-500 tabular-nums">
+                            ${ticker?.lastPrice ? Number(ticker.lastPrice).toFixed(2) : "--"}
+                        </p>
                     </div>
+                    
+                    {/* 3. 24H Change */}
+                    <div className="flex flex-col">
+                        <p className="font-medium text-[11px] text-slate-500 mb-0.5">24H Change</p>
+                        <p className={`text-sm font-medium tabular-nums ${ticker ? (isPositive ? "text-[#00C278]" : "text-[#F94D5C]") : "text-slate-500"}`}>
+                            {ticker ? (
+                                `${isPositive ? "+" : ""}${changeAmount.toFixed(2)}  ${isPositive ? "+" : ""}${changePercent.toFixed(2)}%`
+                            ) : "--"}
+                        </p>
+                    </div>
+
+                    {/* 4. 24H High */}
+                    <div className="flex flex-col">
+                        <p className="font-medium text-[11px] text-slate-500 mb-0.5">24H High</p>
+                        <p className="text-sm font-medium tabular-nums text-slate-200">
+                            {ticker?.high ? Number(ticker.high).toFixed(2) : "--"}
+                        </p>
+                    </div>
+                    
+                    {/* 5. 24H Low */}
+                    <div className="flex flex-col">
+                        <p className="font-medium text-[11px] text-slate-500 mb-0.5">24H Low</p>
+                        <p className="text-sm font-medium tabular-nums text-slate-200">
+                            {ticker?.low ? Number(ticker.low).toFixed(2) : "--"}
+                        </p>
+                    </div>
+                    
+                    {/* 6. 24H Volume */}
+                    <div className="flex flex-col">
+                        <p className="font-medium text-[11px] text-slate-500 mb-0.5">24H Volume</p>
+                        <p className="text-sm font-medium tabular-nums text-slate-200">
+                            {ticker?.volume ? Number(ticker.volume).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "--"}
+                        </p>
+                    </div>
+                    
                 </div>
             </div>
-        </button>
-    </div>
+        </div>
+    );
+};
+
+// Your original Ticker component, styled to fit the panel
+function Ticker({ market }: { market: string }) {
+    return (
+        <div className="flex items-center h-full shrink-0 pr-6 border-r border-slate-800/50 pl-4">
+            <div className="flex flex-row relative -mr-2">
+                <img 
+                    alt="Base Asset" 
+                    loading="lazy" 
+                    className="z-10 rounded-full h-7 w-7 border-2 border-[#14151B]"  
+                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s" 
+                />
+                <img 
+                    alt="Quote Asset" 
+                    loading="lazy"
+                    className="h-7 w-7 -ml-2 rounded-full border-2 border-[#14151B]" 
+                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s" 
+                />
+            </div>
+            <div className="flex items-center cursor-pointer rounded-lg p-3 hover:opacity-80 transition-opacity">
+                <p className="font-bold text-lg text-white">
+                    {market.replace("_", " / ")}
+                </p>
+            </div>
+        </div>
+    );
 }

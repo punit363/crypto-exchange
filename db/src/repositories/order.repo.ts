@@ -10,4 +10,33 @@ export const OrderRepo = {
   create: async (data: Order) => {
     return prisma.order.create({ data });
   },
+
+  getUserOrders: async (
+    userId: string,
+    market: string,
+    type: "open" | "history"
+  ) => {
+    const [base_asset, quote_asset] = market.split("_");
+
+    // Determine which statuses to fetch based on the requested type
+    const targetStatuses =
+      type === "open" ? ["open", "partial"] : ["filled", "cancelled"];
+
+    const orders = await prisma.order.findMany({
+      where: {
+        user_id: userId,
+        base_asset: base_asset,
+        quote_asset: quote_asset,
+        status: {
+          in: targetStatuses,
+        },
+      },
+      orderBy: {
+        created_at: "desc", // Newest orders first
+      },
+      take: 100, // Limit to prevent massive payloads
+    });
+
+    return orders;
+  },
 };
