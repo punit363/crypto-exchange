@@ -30,6 +30,10 @@ class RedisHandler {
     return this.instance;
   };
 
+  get = async (key: string) => {
+    return await this.client.get(key);
+  };
+
   sendAndAwait = async (data: EngineRequest) => {
     const engineRequestId = generateEngineRequestId();
     const engine_data = {

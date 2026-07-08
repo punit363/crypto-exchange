@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { wsClient } from "@/app/utils/wsClient";
+// 1. Import the getDepth HTTP call
+import { getDepth } from "@/app/utils/httpClient"; 
 
 export function Depth({ market }: { market: string }) {
     const [bids, setBids] = useState<[string, string][]>();
@@ -9,50 +11,77 @@ export function Depth({ market }: { market: string }) {
     const [price, setPrice] = useState<string>();
 
     useEffect(() => {
-        const handleBookUpdate = (data: any) => {
-            // 1. Unwrap the backend payload!
+        let isMounted = true;
+
+        // 2. FETCH INITIAL SNAPSHOT FROM REDIS API
+        getDepth(market).then((data) => {
+            if (!isMounted) return;
+            
             const bookData = data.book || data;
 
-            setBids((prevBids) => {
-                const bidMap = new Map(prevBids || []);
-                
-                // 2. Use the unwrapped bookData
-                Object.entries(bookData.bids || {}).forEach(([p, s]) => {
-                    Number(s) === 0 ? bidMap.delete(p) : bidMap.set(p, String(s)); 
-                });
-                
-                return Array.from(bidMap.entries()).sort((a, b) => Number(b[0]) - Number(a[0]));
-            });
+            if (bookData.bids) {
+                const newBids = Object.entries(bookData.bids)
+                    .map(([p, s]) => [p, String(s)] as [string, string])
+                    .filter(([p, s]) => Number(s) > 0)
+                    .sort((a, b) => Number(b[0]) - Number(a[0]));
+                setBids(newBids);
+            }
 
-            setAsks((prevAsks) => {
-                const askMap = new Map(prevAsks || []);
-                
-                // 2. Use the unwrapped bookData
-                Object.entries(bookData.asks || {}).forEach(([p, s]) => {
-                    Number(s) === 0 ? askMap.delete(p) : askMap.set(p, String(s));
-                });
-                
-                return Array.from(askMap.entries()).sort((a, b) => Number(a[0]) - Number(b[0]));
-            });
-        };
+            if (bookData.asks) {
+                const newAsks = Object.entries(bookData.asks)
+                    .map(([p, s]) => [p, String(s)] as [string, string])
+                    .filter(([p, s]) => Number(s) > 0)
+                    .sort((a, b) => Number(a[0]) - Number(b[0]));
+                setAsks(newAsks);
+            }
+        }).catch(err => console.error("Failed to fetch initial depth", err));
 
-        const handleTradeUpdate = (fills: any[]) => {
-            console.log("🚨 RAW WS TRADE DATA:", fills); // ADD THIS LINE
-            if (fills && fills.length > 0 && fills[0].price) {
-                setPrice(fills[0].price.toString());
+
+        // 3. HANDLE LIVE WEBSOCKET DELTAS/SNAPSHOTS
+        const handleBookUpdate = (data: any) => {
+            if (!isMounted) return;
+            const bookData = data.book || data;
+
+            if (bookData.bids) {
+                const newBids = Object.entries(bookData.bids)
+                    .map(([p, s]) => [p, String(s)] as [string, string])
+                    .filter(([p, s]) => Number(s) > 0) 
+                    .sort((a, b) => Number(b[0]) - Number(a[0]));
+                
+                setBids(newBids);
+            }
+
+            if (bookData.asks) {
+                const newAsks = Object.entries(bookData.asks)
+                    .map(([p, s]) => [p, String(s)] as [string, string])
+                    .filter(([p, s]) => Number(s) > 0) 
+                    .sort((a, b) => Number(a[0]) - Number(b[0]));
+                
+                setAsks(newAsks);
             }
         };
 
+        const handleTradeUpdate = (fills: any) => {
+            if (!isMounted) return;
+            const tradeData = fills.trade || fills;
+            
+            if (Array.isArray(tradeData) && tradeData.length > 0 && tradeData[0].price) {
+                setPrice(tradeData[0].price.toString());
+            }
+        };
+
+        wsClient.connect();
         wsClient.subscribe(market, "BOOK", handleBookUpdate);
         wsClient.subscribe(market, "TRADE", handleTradeUpdate);
 
         return () => {
+            isMounted = false;
             wsClient.unsubscribe(market, "BOOK", handleBookUpdate);
             wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
         };
     }, [market]);
 
-    // 1. Process levels to calculate cumulative totals for the depth bars
+    // Process levels to calculate cumulative totals for the depth bars
     const processLevels = (levels: [string, string][]) => {
         let total = 0;
         return levels.map(([priceStr, quantityStr]) => {
@@ -66,16 +95,11 @@ export function Depth({ market }: { market: string }) {
         });
     };
 
-    // Slice to top 15 so we don't render thousands of DOM nodes
     const bidsWithTotal = useMemo(() => processLevels(bids?.slice(0, 15) || []), [bids]);
-    
-    // Asks are sorted ascending (lowest first). We calculate totals starting from the lowest ask, 
-    // then REVERSE the array so the lowest ask renders at the bottom, right above the spread.
     const asksWithTotal = useMemo(() => processLevels(asks?.slice(0, 15) || []).reverse(), [asks]);
 
-    // 2. Find maximum total to dynamically scale the background depth bars
     const maxTotal = Math.max(
-        asksWithTotal[0]?.total || 0, // After reversing, the largest total is at index 0
+        asksWithTotal[0]?.total || 0, 
         bidsWithTotal[bidsWithTotal.length - 1]?.total || 0
     );
 
@@ -91,7 +115,7 @@ export function Depth({ market }: { market: string }) {
 
             {/* ASKS (Selling - Red) */}
             <div className="flex flex-col flex-1 overflow-hidden justify-end pb-1">
-                {asksWithTotal.map((ask, i) => {
+                {asksWithTotal.map((ask) => {
                     const barWidth = maxTotal > 0 ? (ask.total / maxTotal) * 100 : 0;
                     return (
                         <div key={`ask-${ask.price}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">
@@ -117,7 +141,7 @@ export function Depth({ market }: { market: string }) {
 
             {/* BIDS (Buying - Green) */}
             <div className="flex flex-col flex-1 overflow-hidden pt-1">
-                {bidsWithTotal.map((bid, i) => {
+                {bidsWithTotal.map((bid) => {
                     const barWidth = maxTotal > 0 ? (bid.total / maxTotal) * 100 : 0;
                     return (
                         <div key={`bid-${bid.price}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">

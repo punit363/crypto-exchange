@@ -1,3 +1,4 @@
+import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
 
 interface Order {
@@ -71,6 +72,16 @@ class Orderbook {
 
   getBookWithQuantity = () => {
     return bookWithQuantity;
+  };
+
+  publishSnapshot = async () => {
+    try {
+      const market = `${this.baseAsset}_${this.quoteAsset}`;
+      const redis = await RedisHandler.createInstance();
+      redis.setBookWithQuantity(bookWithQuantity, market);
+    } catch (error) {
+      console.error("Failed to push book snapshot to Redis:", error);
+    }
   };
 
   executeSellOrder = (

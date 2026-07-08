@@ -6,9 +6,7 @@ const BASE_URL = "http://localhost:3000/api/v1";
 // Add this to your httpClient.ts
 export async function getTicker(market: string) {
   // Replace this URL with your actual backend endpoint if it's different
-  const response = await fetch(
-    `${BASE_URL}/ticker?symbol=${market}`
-  );
+  const response = await fetch(`${BASE_URL}/ticker?symbol=${market}`);
   if (!response.ok) throw new Error("Failed to fetch ticker");
   return response.json();
 }
@@ -21,7 +19,6 @@ export async function getUserOrders(
   const response = await fetch(
     `${BASE_URL}/order?userId=${userId}&market=${market}&type=${type}`
   );
-  console.log("response=====================", response);
   if (!response.ok) {
     throw new Error(`Failed to fetch ${type} orders`);
   }
@@ -33,14 +30,20 @@ export async function getTickers(): Promise<Ticker[]> {
   return response.data;
 }
 
-export async function getDepth(market: string): Promise<Depth> {
-  const response = await axios.get(`${BASE_URL}/depth?symbol=${market}`);
-  return response.data;
+export async function getTrades(market: string): Promise<any[]> {
+  const response = await fetch(`${BASE_URL}/trades?symbol=${market}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch initial trades");
+  }
+  return response.json();
 }
 
-export async function getTrades(market: string): Promise<Trade[]> {
-  const response = await axios.get(`${BASE_URL}/trades?symbol=${market}`);
-  return response.data;
+export async function getDepth(market: string): Promise<any> {
+  const response = await fetch(`${BASE_URL}/depth?symbol=${market}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch initial depth");
+  }
+  return response.json();
 }
 
 export async function getKlines(

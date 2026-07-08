@@ -1,31 +1,13 @@
 import Engine from "./engine";
 import RedisHandler from "./redis";
-// const main = async () => {
-//   const engine = new Engine()
-//   let i = 0;
-//   const redis = await RedisHandler.createInstance();
-//   while (true) {
-//     console.log("loop", i++);
-//     const order = await redis.getOrderFromQueue();
-//     console.log("order-----------engine/indexjs", order);
-//     if (order) {
-//       await engine.processOrder(JSON.parse(order.element));
-//       console.log(JSON.parse(order.element), "engine order");
-//     }
 
-//   }
-// };
-
-// main();
-
-// engine processes one queue sequentially — order guaranteed
 const main = async () => {
   const engine = new Engine();
   const redis = await RedisHandler.createInstance();
 
   while (true) {
     try {
-      const message = await redis.getMessage(); // one queue: "engine_queue"
+      const message = await redis.getMessage();
       if (!message) continue;
 
       const parsed = JSON.parse(message.element);
@@ -52,6 +34,8 @@ const main = async () => {
 };
 
 main().catch(console.error);
+
+
 
 //Finally felt the single threaded nature of javascript--now i can little bit understand what senior devs face
 

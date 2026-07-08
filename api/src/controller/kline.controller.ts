@@ -1,6 +1,5 @@
 import { prisma } from "@exchange/db";
 import { Request, Response } from "express";
-import { start } from "repl";
 
 const fetchKline = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -65,7 +64,6 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
     const formattedKlines = result
       .map((row) => ({
         end: new Date(row.bucket_time).getTime(),
-
         open: row.open.toString(),
         high: row.high.toString(),
         low: row.low.toString(),

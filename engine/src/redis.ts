@@ -21,7 +21,7 @@ class RedisHandler {
     return RedisHandler.instance;
   };
 
-  sendApiResponse = async (engine_response: any,engine_request_id:string) => {
+  sendApiResponse = async (engine_response: any, engine_request_id: string) => {
     await this.publisher.publish(
       engine_request_id,
       JSON.stringify(engine_response)
@@ -46,6 +46,10 @@ class RedisHandler {
   publishOrderBookWithQuantity = async (book_details: any) => {
     console.log("publishing book");
     await this.publisher.publish("book", JSON.stringify(book_details));
+  };
+
+  setBookWithQuantity = async (bookWithQuantity: any, market: string) => {
+    await this.client.set(`DEPTH:${market}`, JSON.stringify(bookWithQuantity));
   };
 }
 export default RedisHandler;

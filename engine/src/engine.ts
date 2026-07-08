@@ -332,6 +332,7 @@ class Engine {
         await redis.publishOrderBookWithQuantity(
           book_with_quantity_publish_data
         );
+        orderbook.publishSnapshot()
 
         await redis.sendToDB({
           action: "ADD_ORDER",
