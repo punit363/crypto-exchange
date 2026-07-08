@@ -10,8 +10,6 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
     // Ensure we handle timestamps in seconds (Unix)
     const startTime = parseInt(req.query.startTime as string);
     const endTime = parseInt(req.query.endTime as string);
-    console.log("starttime------", startTime);
-    console.log("endtime------", endTime);
     // Enforce a strict limit
     const limit = Math.min(parseInt(req.query.limit as string) || 500, 1000);
 
@@ -24,13 +22,6 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
         .json({ error: "Invalid symbol format. Use BASE_QUOTE." });
     }
 
-    console.log(
-      "start--------------",
-      baseAsset,
-      quoteAsset,
-      reqInterval,
-      limit
-    );
     // 2. Map frontend interval to PostgreSQL interval
     let pgInterval = "1 hour";
     switch (reqInterval) {
@@ -71,22 +62,17 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
             LIMIT ${limit};
         `;
 
-    console.log("result+++++++++++++++++++", result);
-
-    // 4. Map the DB response to the exact shape the frontend ChartManager expects
     const formattedKlines = result
       .map((row) => ({
-        // Convert DB timestamp back to JS millisecond integer
         end: new Date(row.bucket_time).getTime(),
 
-        // Prisma Decimals/raw numerics need to be cast to string for the frontend
         open: row.open.toString(),
         high: row.high.toString(),
         low: row.low.toString(),
         close: row.close.toString(),
         volume: row.volume.toString(),
       }))
-      .reverse(); // Reverse back to ASC chronological order for Lightweight Charts
+      .reverse(); 
 
     res.json(formattedKlines);
   } catch (error) {

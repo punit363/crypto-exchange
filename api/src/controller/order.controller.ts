@@ -283,6 +283,7 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
     }
 
     const orders = await OrderRepo.getUserOrders(userId, market, type);
+    console.log("order-----------------")
     console.log("order-----------------",orders)
 
     // Map Prisma output to stringify Decimals and Dates for the frontend

@@ -10,10 +10,14 @@ export function Depth({ market }: { market: string }) {
 
     useEffect(() => {
         const handleBookUpdate = (data: any) => {
+            // 1. Unwrap the backend payload!
+            const bookData = data.book || data;
+
             setBids((prevBids) => {
                 const bidMap = new Map(prevBids || []);
                 
-                Object.entries(data.bids || {}).forEach(([p, s]) => {
+                // 2. Use the unwrapped bookData
+                Object.entries(bookData.bids || {}).forEach(([p, s]) => {
                     Number(s) === 0 ? bidMap.delete(p) : bidMap.set(p, String(s)); 
                 });
                 
@@ -23,7 +27,8 @@ export function Depth({ market }: { market: string }) {
             setAsks((prevAsks) => {
                 const askMap = new Map(prevAsks || []);
                 
-                Object.entries(data.asks || {}).forEach(([p, s]) => {
+                // 2. Use the unwrapped bookData
+                Object.entries(bookData.asks || {}).forEach(([p, s]) => {
                     Number(s) === 0 ? askMap.delete(p) : askMap.set(p, String(s));
                 });
                 
@@ -32,6 +37,7 @@ export function Depth({ market }: { market: string }) {
         };
 
         const handleTradeUpdate = (fills: any[]) => {
+            console.log("🚨 RAW WS TRADE DATA:", fills); // ADD THIS LINE
             if (fills && fills.length > 0 && fills[0].price) {
                 setPrice(fills[0].price.toString());
             }

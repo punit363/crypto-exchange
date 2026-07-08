@@ -4,91 +4,116 @@ import { useEffect, useState } from "react";
 import { wsClient } from "../utils/wsClient";
 import { getTrades } from "../utils/httpClient";
 
-// Defining the shape based on your backend payload
-interface Trade {
+// 1. Renamed to TradeEvent to avoid collision with the imported Trade type
+interface TradeEvent {
     tradeId: string;
     price: string | number;
     quantity: string | number;
     bucketTime: number;
-    isBuyerMaker?: boolean; // Optional: if your backend adds this later for red/green colors
+    isBuyerMaker?: boolean; 
 }
 
 export function Trades({ market }: { market: string }) {
-    const [trades, setTrades] = useState<Trade[]>([]);
+    const [trades, setTrades] = useState<TradeEvent[]>([]);
 
     useEffect(() => {
-        // 1. Fetch the initial snapshot of recent trades
-        getTrades(market).then((initialTrades) => {
-            // Assuming your HTTP client returns an array of trades
-            if (Array.isArray(initialTrades)) {
-                setTrades(initialTrades.slice(0, 50));
+        let isMounted = true;
+
+        // 2. Fetch the initial snapshot and safely map the data
+        getTrades(market).then((initialTrades: any[]) => {
+            if (isMounted && Array.isArray(initialTrades)) {
+                // Map whatever the backend sends into our strict local TradeEvent format
+                const formattedTrades = initialTrades.map((t) => ({
+                    tradeId: t.tradeId || t.id || t.uuid || Math.random().toString(),
+                    price: t.price,
+                    quantity: t.quantity || t.qty || t.size || "0",
+                    bucketTime: t.bucketTime || t.timestamp || t.time || Date.now(),
+                    isBuyerMaker: t.isBuyerMaker
+                }));
+                
+                setTrades(formattedTrades.slice(0, 50));
             }
         }).catch(err => console.error("Failed to fetch initial trades", err));
 
-        // 2. Ensure WebSocket is connected
         wsClient.connect();
 
-        // 3. Handle live trade updates
-        const handleTradeUpdate = (fills: Trade[]) => {
-            if (fills && fills.length > 0) {
-                setTrades((prevTrades) => {
-                    // Put new trades at the top, keep the old ones, and cap at 50 to prevent DOM bloat
-                    const merged = [...fills, ...prevTrades];
-                    return merged.slice(0, 50);
-                });
-            }
+        const handleTradeUpdate = (data: any) => {
+            // 1. Unwrap the backend payload!
+            const fills = data.trade || data; 
+
+            // 2. Safely check if it's an array and actually has trades in it
+            if (!isMounted || !Array.isArray(fills) || fills.length === 0) return;
+            
+            setTrades((prevTrades) => {
+                const formattedFills = fills.map(fill => ({
+                    tradeId: fill.tradeId || fill.id || Math.random().toString(),
+                    price: fill.price,
+                    quantity: fill.quantity || fill.size,
+                    bucketTime: fill.bucketTime || fill.timestamp || Date.now(),
+                    isBuyerMaker: fill.isBuyerMaker
+                }));
+
+                const merged = [...formattedFills, ...prevTrades];
+                return merged.slice(0, 50);
+            });
         };
 
-        // 4. Subscribe to the TRADE channel
         wsClient.subscribe(market, "TRADE", handleTradeUpdate);
 
-        // 5. Cleanup on unmount
         return () => {
+            isMounted = false;
             wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
         };
     }, [market]);
 
     return (
-        <div className="flex flex-col h-full w-full bg-baseBackground">
+        <div className="flex flex-col h-full w-full bg-[#14151B]">
             {/* Header */}
-            <div className="flex justify-between px-4 py-2 text-xs font-medium text-slate-400 border-b border-slate-800">
+            <div className="flex justify-between px-3 py-1 mt-1 text-xs font-medium text-slate-500 border-b border-slate-800/50">
                 <div className="w-1/3 text-left">Price</div>
                 <div className="w-1/3 text-right">Size</div>
                 <div className="w-1/3 text-right">Time</div>
             </div>
 
             {/* Trade List */}
-            <div className="flex-1 overflow-y-auto no-scrollbar">
-                {trades.map((trade, index) => {
-                    // Basic time formatting (HH:MM:SS)
-                    const timeString = new Date(trade.bucketTime || Date.now()).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false 
-                    });
+            <div className="flex-1 overflow-y-auto no-scrollbar pt-1">
+                {trades.length === 0 ? (
+                    <div className="flex items-center justify-center h-20 text-slate-500 font-sans text-xs">
+                        Waiting for trades...
+                    </div>
+                ) : (
+                    trades.map((trade, index) => {
+                        const timeString = new Date(trade.bucketTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false 
+                        });
 
-                    // If your backend doesn't say if it's a buy/sell, we'll default to white for now.
-                    // Later, you can compare this price to the previous price to color it red/green!
-                    const priceColor = "text-white"; 
+                        // Premium Backpack styling: green for buys, red for sells
+                        const isBuy = trade.isBuyerMaker === false; // Maker sold = taker bought
+                        const priceColor = trade.isBuyerMaker !== undefined 
+                            ? (isBuy ? "text-[#00C278]" : "text-[#F94D5C]") 
+                            : "text-white"; 
 
-                    return (
-                        <div 
-                            key={trade.tradeId || index} 
-                            className="flex justify-between px-4 py-1 text-xs tabular-nums hover:bg-slate-800 cursor-pointer transition-colors"
-                        >
-                            <div className={`w-1/3 text-left ${priceColor}`}>
-                                {Number(trade.price).toFixed(2)}
+                        return (
+                            <div 
+                                key={trade.tradeId || index} 
+                                className="flex justify-between px-3 py-[3px] text-[11px] tabular-nums hover:bg-slate-800/50 cursor-pointer transition-colors"
+                            >
+                                <div className={`w-1/3 text-left ${priceColor}`}>
+                                    {Number(trade.price).toFixed(2)}
+                                </div>
+                                <div className="w-1/3 text-right text-slate-300">
+                                    {Number(trade.quantity).toFixed(4)}
+                                </div>
+                                <div className="w-1/3 text-right text-slate-500">
+                                    {timeString}
+                                </div>
                             </div>
-                            <div className="w-1/3 text-right text-slate-300">
-                                {trade.quantity}
-                            </div>
-                            <div className="w-1/3 text-right text-slate-500">
-                                {timeString}
-                            </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
         </div>
     );

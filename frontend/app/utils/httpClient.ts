@@ -1,14 +1,13 @@
 import axios from "axios";
 import { Depth, KLine, Ticker, Trade } from "./types";
 
-// const BASE_URL = "https://exchange-proxy.100xdevs.com/api/v1";
 const BASE_URL = "http://localhost:3000/api/v1";
 
 // Add this to your httpClient.ts
 export async function getTicker(market: string) {
   // Replace this URL with your actual backend endpoint if it's different
   const response = await fetch(
-    `http://localhost:3000/api/v1/tickers?symbol=${market}`
+    `${BASE_URL}/ticker?symbol=${market}`
   );
   if (!response.ok) throw new Error("Failed to fetch ticker");
   return response.json();
@@ -20,7 +19,7 @@ export async function getUserOrders(
   type: "open" | "history"
 ) {
   const response = await fetch(
-    `http://localhost:3000/api/v1/order?userId=${userId}&market=${market}&type=${type}`
+    `${BASE_URL}/order?userId=${userId}&market=${market}&type=${type}`
   );
   console.log("response=====================", response);
   if (!response.ok) {
@@ -57,7 +56,6 @@ export async function getKlines(
   return data.sort((x, y) => (Number(x.end) < Number(y.end) ? -1 : 1));
 }
 
-// 💥 NEW: Functional Order Request Bridge 💥
 export async function createOrder(orderPayload: {
   user_id: string;
   price: number;

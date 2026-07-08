@@ -21,7 +21,7 @@ export default function Page() {
                 
                 <div className="flex flex-row flex-1 overflow-hidden border-y border-slate-800/50">
                     
-                    {/* Left: Charting Area AND Orders Panel (Only ONE block now) */}
+                    {/* Left: Charting Area AND Orders Panel */}
                     <div className="flex flex-col flex-1 border-r border-slate-800/50 overflow-hidden relative">
                         
                         {/* Top: The Chart */}
@@ -62,14 +62,19 @@ export default function Page() {
                             )}
                         </div>
                         
-                        <div className="flex-1 overflow-hidden flex flex-col relative">
-                            <div className={`absolute inset-0 flex flex-col ${activeTab === 'book' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
+                        {/* DYNAMIC PANEL FIX APPLIED HERE */}
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                            
+                            {/* Book Tab Container */}
+                            <div className={`flex-1 flex-col overflow-hidden ${activeTab === 'book' ? 'flex' : 'hidden'}`}>
                                 <Depth market={market as string} /> 
                             </div>
                             
-                            <div className={`absolute inset-0 flex flex-col ${activeTab === 'trades' ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'}`}>
+                            {/* Trades Tab Container */}
+                            <div className={`flex-1 flex-col overflow-hidden ${activeTab === 'trades' ? 'flex' : 'hidden'}`}>
                                 <Trades market={market as string} />
                             </div>
+                            
                         </div>
                         
                     </div>

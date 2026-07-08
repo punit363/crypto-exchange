@@ -1,5 +1,10 @@
 "use client";
 import { useState } from "react";
+// 1. Updated import to your new createOrder function
+import { createOrder } from "../utils/httpClient";
+
+const MOCK_USER_ID_1 = "usr_6q9g3syt014"; 
+const MOCK_USER_ID_2 = "usr_xslwr9hnet"; 
 
 export function SwapUI({ market }: { market: string }) {
     const [baseAsset, quoteAsset] = market.split("_");
@@ -7,11 +12,42 @@ export function SwapUI({ market }: { market: string }) {
     const [type, setType] = useState<'limit' | 'market'>('limit');
     const [price, setPrice] = useState("");
     const [quantity, setQuantity] = useState("");
+    
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const total = (Number(price) * Number(quantity)) || 0;
 
+    const handleSubmit = async () => {
+        // Prevent submitting empty values
+        if (!quantity || (type === 'limit' && !price)) return;
+        
+        setIsSubmitting(true);
+        try {
+            // 2. Updated API call to match your new payload structure and types
+            await createOrder({
+                user_id: MOCK_USER_ID_1,
+                price: Number(price),       // Converted to number
+                quantity: Number(quantity), // Converted to number
+                side: activeTab,
+                type: type,
+                baseAsset: baseAsset,
+                quoteAsset: quoteAsset
+            });
+            
+            // Clear inputs on success
+            setPrice("");
+            setQuantity("");
+            
+            console.log("Order placed successfully!");
+            
+        } catch (error) {
+            console.error("Error placing order:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
-        // Added the Backpack-style panel background and border
         <div className="flex flex-col w-full bg-[#14151B] border border-slate-800/50 rounded-lg p-4">
             
             {/* Segmented Control for Buy / Sell */}
@@ -56,7 +92,7 @@ export function SwapUI({ market }: { market: string }) {
                     <p className="font-medium text-xs text-slate-300">0.00 {activeTab === 'buy' ? quoteAsset : baseAsset}</p>
                 </div>
                 
-                {/* Price Input (Borderless, Filled) */}
+                {/* Price Input */}
                 <div className="flex flex-col gap-1">
                     <div className="flex justify-between">
                         <p className="text-xs text-slate-500">Price</p>
@@ -65,16 +101,14 @@ export function SwapUI({ market }: { market: string }) {
                         <input 
                             type="number"
                             placeholder="0" 
-                            disabled={type === 'market'}
+                            disabled={type === 'market' || isSubmitting}
                             value={type === 'market' ? "" : price}
                             onChange={(e) => setPrice(e.target.value)}
-                            // Backpack style: bg-fill, no border, text on the left
                             className={`w-full h-11 rounded-lg bg-[#1E2026] px-3 text-left text-sm font-medium text-white placeholder-slate-600 transition outline-none border-none focus:ring-1 focus:ring-slate-700 ${
-                                type === 'market' ? 'opacity-50 cursor-not-allowed' : ''
+                                (type === 'market' || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''
                             }`} 
                         />
                         <div className="absolute right-3 flex items-center gap-2">
-                            {/* Optional: Add Coin Icons here later like Backpack has */}
                             <span className="text-xs font-semibold text-slate-500">{quoteAsset}</span>
                         </div>
                     </div>
@@ -89,9 +123,12 @@ export function SwapUI({ market }: { market: string }) {
                         <input 
                             type="number"
                             placeholder="0" 
+                            disabled={isSubmitting}
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            className="w-full h-11 rounded-lg bg-[#1E2026] px-3 text-left text-sm font-medium text-white placeholder-slate-600 transition outline-none border-none focus:ring-1 focus:ring-slate-700" 
+                            className={`w-full h-11 rounded-lg bg-[#1E2026] px-3 text-left text-sm font-medium text-white placeholder-slate-600 transition outline-none border-none focus:ring-1 focus:ring-slate-700 ${
+                                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                            }`} 
                         />
                         <div className="absolute right-3 flex items-center gap-2">
                             <span className="text-xs font-semibold text-slate-500">{baseAsset}</span>
@@ -110,11 +147,17 @@ export function SwapUI({ market }: { market: string }) {
                 {/* Submit Button */}
                 <button 
                     type="button" 
-                    className={`mt-2 font-semibold h-12 rounded-xl text-sm text-white active:scale-[0.98] transition-all outline-none ${
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className={`mt-2 font-semibold h-12 rounded-xl text-sm text-white active:scale-[0.98] transition-all outline-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
                         activeTab === 'buy' ? 'bg-[#00C278] hover:bg-[#00a868]' : 'bg-[#F94D5C] hover:bg-[#e04552]'
                     }`}
                 >
-                    {activeTab === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
+                    {isSubmitting ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                        activeTab === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`
+                    )}
                 </button>
                 
                 {/* Order Options */}
