@@ -293,22 +293,23 @@ class Engine {
           quoteAsset,
           baseAsset
         );
-
+        console.log("0---------------------");
         const {
           order_id,
           fills,
           unsold_market_order_quanity = null,
           unused_market_order_amount = null,
         } = orderbook.placeOrder(order.user_id, order.order_data);
-
+        console.log("1---------------------");
         settleBalanceAfterTrade(
           fills,
           order.order_data.side,
           order.order_data.quoteAsset,
           order.order_data.baseAsset
         );
-
+        console.log("2---------------------");
         const redis = await RedisHandler.createInstance();
+        console.log("3---------------------");
         await redis.sendApiResponse(
           {
             order_id,
@@ -318,10 +319,11 @@ class Engine {
           },
           engine_request_id
         );
+        console.log("4---------------------");
 
         const trade_publish_data = {
           market: `${baseAsset}_${quoteAsset}`,
-          trade:fills,
+          trade: fills,
         };
         const book_with_quantity_publish_data = {
           market: `${baseAsset}_${quoteAsset}`,
@@ -329,10 +331,15 @@ class Engine {
         };
 
         await redis.publishTrade(trade_publish_data);
+        console.log("5---------------------");
+
         await redis.publishOrderBookWithQuantity(
           book_with_quantity_publish_data
         );
-        orderbook.publishSnapshot()
+        console.log("6---------------------");
+
+        orderbook.publishSnapshot();
+        console.log("7---------------------");
 
         await redis.sendToDB({
           action: "ADD_ORDER",
@@ -349,9 +356,11 @@ class Engine {
             quote_asset: quoteAsset,
           },
         });
+        console.log("8---------------------");
 
         if (fills.length > 0) {
           addCandlesToDB(fills, baseAsset, quoteAsset);
+          console.log("9---------------------");
 
           const trades = fills.map((fill) => ({
             trade_id: fill.tradeId,
@@ -370,6 +379,7 @@ class Engine {
             action: "ADD_TRADES",
             trades,
           });
+          console.log("10---------------------");
         }
         break;
       }

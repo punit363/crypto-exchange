@@ -1,3 +1,4 @@
+import { AnyNaptrRecord } from "dns";
 import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
 
@@ -6,16 +7,10 @@ interface Order {
   userID: string;
   price: number;
   quantity: number;
+  filled: number;
+  status: "open" | "filled" | "cancelled" | "partial";
   side: "buy" | "sell";
 }
-
-const bookWithQuantity: {
-  bids: { [price: number]: number };
-  asks: { [price: number]: number };
-} = {
-  bids: {},
-  asks: {},
-};
 
 interface Fills {
   price: number;
@@ -25,6 +20,8 @@ interface Fills {
   tradeId: string;
   orderId: string;
   otherOrderId: string;
+  otherOrderFilled: number;
+  otherOrderStatus: string;
   bucketTime: number;
 }
 
@@ -35,6 +32,14 @@ class Orderbook {
   asks: Order[];
   lastTradeId: string;
   currentPrice: number;
+
+  bookWithQuantity: {
+    bids: { [price: number]: number };
+    asks: { [price: number]: number };
+  } = {
+    bids: {},
+    asks: {},
+  };
 
   constructor(
     baseAsset: string,
@@ -71,14 +76,19 @@ class Orderbook {
   };
 
   getBookWithQuantity = () => {
-    return bookWithQuantity;
+    return this.bookWithQuantity;
   };
 
   publishSnapshot = async () => {
     try {
       const market = `${this.baseAsset}_${this.quoteAsset}`;
+      const payload = {
+        bids: this.bookWithQuantity.bids,
+        asks: this.bookWithQuantity.asks,
+        currentPrice: this.currentPrice,
+      };
       const redis = await RedisHandler.createInstance();
-      redis.setBookWithQuantity(bookWithQuantity, market);
+      redis.setBookWithQuantity(payload, market);
     } catch (error) {
       console.error("Failed to push book snapshot to Redis:", error);
     }
@@ -92,23 +102,36 @@ class Orderbook {
       quantity?: any;
       side?: any;
       type?: any;
+      filled?: any;
+      status?: any;
     }
   ) => {
-    let { order_id, price, quantity, type } = order_data;
+    let {
+      order_id,
+      price,
+      quantity,
+      type,
+      filled = 0,
+      status = "open",
+    } = order_data;
     const fills: Fills[] = [];
     let unsold_market_order_quanity;
     const bid_splice_indexes: number[] = [];
 
-    const tradeId = generateTradeId();
     let i = 0;
 
     for (const [idx, o] of this.bids.entries()) {
       i++;
       if (price <= o.price || type === "market") {
-        const fillQuantity = Math.min(quantity, o.quantity);
-        o.quantity -= fillQuantity;
-        bookWithQuantity.bids[o.price] =
-          (bookWithQuantity.bids[o.price] || 0) - fillQuantity;
+        const fillQuantity = Math.min(quantity - filled, o.quantity - o.filled);
+        o.filled += fillQuantity;
+        if (o.filled === o.quantity) {
+          o.status = "filled";
+        } else if (o.filled > 0) {
+          o.status = "partial";
+        }
+        this.bookWithQuantity.bids[o.price] =
+          (this.bookWithQuantity.bids[o.price] || 0) - fillQuantity;
 
         const tradeId = generateTradeId();
         fills.push({
@@ -119,30 +142,39 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          otherOrderFilled: o.filled,
+          otherOrderStatus: o.status,
           bucketTime: this.getBucketTime(),
         });
-        quantity -= fillQuantity;
-        if (o.quantity === 0) {
+        filled += fillQuantity;
+        if (o.quantity === o.filled) {
           bid_splice_indexes.push(this.bids.indexOf(o));
         }
       }
-      if (bookWithQuantity.bids[o.price] === 0) {
-        delete bookWithQuantity.bids[o.price];
+      if (this.bookWithQuantity.bids[o.price] <= 0) {
+        delete this.bookWithQuantity.bids[o.price];
       }
-      if (quantity === 0) {
+      if (filled === quantity) {
+        status = "filled";
         break;
       }
     }
 
-    if (quantity != 0 && type == "limit") {
-      //Insert order in sorted format only for limit
+    if (type == "limit") {
       const odr: Order = {
         price,
         quantity,
+        filled,
+        status,
         orderId: order_id,
         side: "sell",
         userID: user_id,
       };
+      if (filled === 0) {
+        odr.status = "open";
+      } else if (filled > 0 && filled < quantity) {
+        odr.status = "partial";
+      }
 
       const index = this.asks.findIndex((el: Order) => el.price > odr.price);
 
@@ -152,13 +184,13 @@ class Orderbook {
         this.asks.splice(index, 0, odr);
       }
 
-      bookWithQuantity.asks[price] =
-        (bookWithQuantity.asks[price] || 0) + quantity;
+      this.bookWithQuantity.asks[price] =
+        (this.bookWithQuantity.asks[price] || 0) + quantity - filled;
     } else if (quantity != 0 && type == "market") {
-      unsold_market_order_quanity = quantity;
+      unsold_market_order_quanity = quantity - filled;
     }
     this.bids = this.bids.filter((_, idx) => !bid_splice_indexes.includes(idx));
-    return { order_id, fills, unsold_market_order_quanity };
+    return { order_id, fills, status, filled, unsold_market_order_quanity };
   };
 
   executeBuyOrder = (
@@ -169,9 +201,11 @@ class Orderbook {
       quantity?: any;
       side?: any;
       type?: any;
+      filled?: number;
+      status?: any;
     }
   ) => {
-    let { order_id, price, quantity, type } = order_data;
+    let { order_id, price, quantity, type, filled = 0, status } = order_data;
 
     const fills: Fills[] = [];
     let unused_market_order_amount;
@@ -181,13 +215,22 @@ class Orderbook {
 
     for (const [idx, o] of this.asks.entries()) {
       if (type == "market") {
-        quantity = price / o.price;
-        const fillQuantity = Math.min(quantity, o.quantity);
-        o.quantity -= fillQuantity;
-        bookWithQuantity.asks[o.price] =
-          (bookWithQuantity.asks[o.price] || 0) - fillQuantity;
-        const tradeId = generateTradeId();
+        const affordableBase = price / o.price;
+        const availableBase = o.quantity - o.filled;
+        const fillQuantity = Math.min(affordableBase, availableBase);
 
+        if (fillQuantity <= 0) break;
+
+        o.filled += fillQuantity;
+        if (o.filled === o.quantity) {
+          o.status = "filled";
+        } else if (o.filled > 0) {
+          o.status = "partial";
+        }
+        this.bookWithQuantity.asks[o.price] =
+          (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
+
+        const tradeId = generateTradeId();
         fills.push({
           price: o.price,
           quantity: fillQuantity,
@@ -196,22 +239,30 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          otherOrderFilled: o.filled,
+          otherOrderStatus: o.status,
           bucketTime: this.getBucketTime(),
         });
-        quantity -= fillQuantity;
 
-        if (o.quantity === 0) {
+        filled += fillQuantity;
+        price -= fillQuantity * o.price;
+
+        if (o.quantity === o.filled) {
           ask_splice_indexes.push(this.asks.indexOf(o));
         }
-
-        price -= fillQuantity * o.price;
       }
 
       if (price >= o.price && type == "limit") {
-        const fillQuantity = Math.min(quantity, o.quantity);
-        o.quantity -= fillQuantity;
-        bookWithQuantity.asks[o.price] =
-          (bookWithQuantity.asks[o.price] || 0) - fillQuantity;
+        const fillQuantity = Math.min(quantity - filled, o.quantity - o.filled);
+        o.filled += fillQuantity;
+        if (o.filled === o.quantity) {
+          o.status = "filled";
+        } else if (o.filled > 0) {
+          o.status = "partial";
+        }
+
+        this.bookWithQuantity.asks[o.price] =
+          (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
         const tradeId = generateTradeId();
 
         fills.push({
@@ -222,59 +273,80 @@ class Orderbook {
           otherUserId: o.userID,
           orderId: order_id,
           otherOrderId: o.orderId,
+          otherOrderFilled: o.filled,
+          otherOrderStatus: o.status,
           bucketTime: this.getBucketTime(),
         });
-        quantity -= fillQuantity;
+        filled += fillQuantity;
 
-        if (o.quantity === 0) {
+        if (o.quantity === o.filled) {
           ask_splice_indexes.push(this.asks.indexOf(o));
         }
       }
 
-      if (bookWithQuantity.asks[o.price] === 0) {
-        delete bookWithQuantity.asks[o.price];
+      if (this.bookWithQuantity.asks[o.price] <= 0) {
+        delete this.bookWithQuantity.asks[o.price];
       }
 
-      if (quantity === 0) {
+      if (quantity === filled) {
+        status = "filled";
+        break;
+      }
+
+      if (type === "market" && price <= 0) {
+        status = "filled";
+        break;
+      } else if (type === "limit" && quantity === filled) {
+        status = "filled";
         break;
       }
     }
 
-    if (quantity != 0 && type === "limit") {
+    if (quantity != filled && type === "limit") {
       //Insert order in sorted format
       const odr: Order = {
         price,
         quantity,
         orderId: order_id,
         side: "buy",
+        filled,
+        status: "partial",
         userID: user_id,
       };
-      const index = this.bids.findIndex((el: Order) => el.price > odr.price);
+      if (filled === 0) {
+        odr.status = "open";
+      } else if (filled > 0 && filled < quantity) {
+        odr.status = "partial";
+      }
+      const index = this.bids.findIndex((el: Order) => el.price < odr.price);
       if (index === -1) {
         this.bids.push(odr);
       } else {
         this.bids.splice(index, 0, odr);
       }
 
-      bookWithQuantity.bids[price] =
-        (bookWithQuantity.bids[price] || 0) + quantity;
+      this.bookWithQuantity.bids[price] =
+        (this.bookWithQuantity.bids[price] || 0) + quantity - filled;
     }
     if (price != 0 && type === "market") {
       unused_market_order_amount = price;
     }
     this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
-    return { order_id, fills, unused_market_order_amount };
+    return { order_id, fills, status, filled, unused_market_order_amount };
   };
 
   placeOrder = (
     user_id: string,
     order_data: { order_id: any; price?: any; quantity?: any; side?: any }
   ) => {
-    console.log("\n Book with Quantity", bookWithQuantity);
+    console.log("\n Book with Quantity", this.bookWithQuantity);
     if (order_data.side == "sell") {
       const { order_id, fills, unsold_market_order_quanity } =
         this.executeSellOrder(user_id, order_data);
-      console.log("\n Book with Quantity buy============", bookWithQuantity);
+      console.log(
+        "\n Book with Quantity buy============",
+        this.bookWithQuantity
+      );
       console.log(
         "\n Bids-----------",
         this.bids,
@@ -287,7 +359,10 @@ class Orderbook {
     } else if (order_data.side == "buy") {
       const { order_id, fills, unused_market_order_amount } =
         this.executeBuyOrder(user_id, order_data);
-      console.log("\n Book with Quantity buy============", bookWithQuantity);
+      console.log(
+        "\n Book with Quantity buy============",
+        this.bookWithQuantity
+      );
       console.log(
         "\n Bids-----------",
         this.bids,
@@ -313,13 +388,13 @@ class Orderbook {
     this.asks.forEach((o) => {
       if (o.orderId == order_data.order_id) {
         asks_array_index.push(this.asks.indexOf(o));
-        bookWithQuantity.asks[o.price] -= o.quantity;
+        this.bookWithQuantity.asks[o.price] -= o.quantity;
       }
     });
     this.bids.forEach((o) => {
       if (o.orderId == order_data.order_id) {
         bids_array_index.push(this.bids.indexOf(o));
-        bookWithQuantity.bids[o.price] -= o.quantity;
+        this.bookWithQuantity.bids[o.price] -= o.quantity;
       }
     });
 
@@ -328,7 +403,7 @@ class Orderbook {
 
     console.log(asks_array_index, "asks_array_index order");
     console.log(bids_array_index, "bids_array_index order");
-    console.log(bookWithQuantity, "bookWithQuantity order");
+    console.log(this.bookWithQuantity, "bookWithQuantity order");
     return { order_id: order_data.order_id };
   };
 }

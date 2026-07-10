@@ -5,7 +5,6 @@ const BASE_URL = "http://localhost:3000/api/v1";
 
 // Add this to your httpClient.ts
 export async function getTicker(market: string) {
-  // Replace this URL with your actual backend endpoint if it's different
   const response = await fetch(`${BASE_URL}/ticker?symbol=${market}`);
   if (!response.ok) throw new Error("Failed to fetch ticker");
   return response.json();

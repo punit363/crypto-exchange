@@ -1,0 +1,13 @@
+{
+  "name": "@exchange/marketmaker",
+  "version": "1.0.0",
+  "description": "Market Maker for crypto exchange",
+  "author": "Punit",
+  "license": "ISC",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "nodemon dist/index.js",
+    "dev": "npm run build && npm run start"
+  }
+}
