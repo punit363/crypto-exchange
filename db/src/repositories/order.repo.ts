@@ -7,6 +7,19 @@ export const OrderRepo = {
     return prisma.order.findUnique({ where: { order_id } });
   },
 
+  updateFilledAndStatus: async (data: {
+    order_id: string;
+    filled: number;
+    status: "open" | "partial" | "cancelled" | "filled";
+  }) => {
+    return prisma.order.update({
+      data: { filled_quantity: data.filled, status: data.status },
+      where: {
+        order_id: data.order_id,
+      },
+    });
+  },
+
   create: async (data: Order) => {
     return prisma.order.create({ data });
   },

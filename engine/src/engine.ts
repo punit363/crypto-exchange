@@ -297,6 +297,8 @@ class Engine {
         const {
           order_id,
           fills,
+          status,
+          filled,
           unsold_market_order_quanity = null,
           unused_market_order_amount = null,
         } = orderbook.placeOrder(order.user_id, order.order_data);
@@ -349,9 +351,9 @@ class Engine {
             side,
             type,
             quantity,
-            filled_quantity: 0,
+            filled_quantity: filled,
             price,
-            status: "open",
+            status,
             base_asset: baseAsset,
             quote_asset: quoteAsset,
           },
@@ -378,6 +380,15 @@ class Engine {
           await redis.sendToDB({
             action: "ADD_TRADES",
             trades,
+          });
+          const update_order = fills.map((fill) => ({
+            order_id: fill.otherOrderId,
+            filled: fill.otherOrderFilled,
+            status: fill.otherOrderStatus
+          }));
+          await redis.sendToDB({
+            action: "UPDATE_ORDERS",
+            update_order,
           });
           console.log("10---------------------");
         }

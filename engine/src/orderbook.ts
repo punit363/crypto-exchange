@@ -341,7 +341,7 @@ class Orderbook {
   ) => {
     console.log("\n Book with Quantity", this.bookWithQuantity);
     if (order_data.side == "sell") {
-      const { order_id, fills, unsold_market_order_quanity } =
+      const { order_id, fills, status, filled, unsold_market_order_quanity } =
         this.executeSellOrder(user_id, order_data);
       console.log(
         "\n Book with Quantity buy============",
@@ -355,9 +355,9 @@ class Orderbook {
       );
       this.updateCurrentPrice(fills);
       this.updateLastTradeId(fills);
-      return { order_id, fills, unsold_market_order_quanity };
+      return { order_id, fills, status, filled, unsold_market_order_quanity };
     } else if (order_data.side == "buy") {
-      const { order_id, fills, unused_market_order_amount } =
+      const { order_id, fills, status, filled, unused_market_order_amount } =
         this.executeBuyOrder(user_id, order_data);
       console.log(
         "\n Book with Quantity buy============",
@@ -371,7 +371,7 @@ class Orderbook {
       );
       this.updateCurrentPrice(fills);
       this.updateLastTradeId(fills);
-      return { order_id, fills, unused_market_order_amount };
+      return { order_id, fills, status, filled, unused_market_order_amount };
     } else {
       throw new Error(`Invalid order side provided: ${order_data.side}`);
     }

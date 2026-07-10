@@ -24,6 +24,7 @@ const dbMain = async () => {
       const db_data: {
         action: string;
         order?: Order;
+        update_order?: any;
         trades?: Trade[];
         transaction?: Transaction;
         balance?: Balance;
@@ -39,6 +40,17 @@ const dbMain = async () => {
             await OrderRepo.create(order_data);
           } else {
             throw Error("Order Data not Found");
+          }
+          break;
+        }
+        case "UPDATE_ORDERS": {
+          const update_data = db_data.update_order;
+          if (update_data) {
+            for (const update of update_data) {
+              await OrderRepo.updateFilledAndStatus(update);
+            }
+          } else {
+            throw Error("Order Update Data not Found");
           }
           break;
         }
@@ -58,7 +70,7 @@ const dbMain = async () => {
           console.log("candle-data----------------------", candle_data);
           if (candle_data) {
             console.log("candle-data----------------------2", candle_data);
-              await CandleRepo.create(candle_data);
+            await CandleRepo.create(candle_data);
           } else {
             throw Error("Trade Data not Found");
           }
@@ -66,10 +78,16 @@ const dbMain = async () => {
         }
         case "ADD_TRANSACTION": {
           const transaction_data = db_data.transaction;
-          console.log("transaction-data----------------------", transaction_data);
+          console.log(
+            "transaction-data----------------------",
+            transaction_data
+          );
           if (transaction_data) {
-            console.log("transaction-data----------------------2", transaction_data);
-              await TransactionRepo.create(transaction_data);
+            console.log(
+              "transaction-data----------------------2",
+              transaction_data
+            );
+            await TransactionRepo.create(transaction_data);
           } else {
             throw Error("Trade Data not Found");
           }
