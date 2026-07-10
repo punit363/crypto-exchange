@@ -130,7 +130,39 @@ const settleBalanceAfterTrade = (
       otherUserBalance[baseAsset].locked -= fill.quantity;
       otherUserBalance[quoteAsset].available += fill.quantity * fill.price;
     }
-    return "available and locked";
+  } else {
+    throw new Error("Order side must be buy or sell");
+  }
+};
+
+const settleBalanceAfterTradeCancellation = (
+  userId: string,
+  quantity: number,
+  filled: number,
+  price: number,
+  side: string,
+  quoteAsset: string,
+  baseAsset: string
+) => {
+  const userBalance = balance.get(userId);
+  if (side === "sell") {
+    //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+
+    if (!userBalance) {
+      throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
+    }
+
+    userBalance[baseAsset].locked -= quantity - filled;
+    userBalance[baseAsset].available += quantity - filled;
+  } else if (side === "buy") {
+    //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+
+    if (!userBalance) {
+      throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
+    }
+
+    userBalance[quoteAsset].locked -= (quantity - filled) * price;
+    userBalance[quoteAsset].available += (quantity - filled) * price;
   } else {
     throw new Error("Order side must be buy or sell");
   }
@@ -384,7 +416,7 @@ class Engine {
           const update_order = fills.map((fill) => ({
             order_id: fill.otherOrderId,
             filled: fill.otherOrderFilled,
-            status: fill.otherOrderStatus
+            status: fill.otherOrderStatus,
           }));
           await redis.sendToDB({
             action: "UPDATE_ORDERS",
@@ -395,23 +427,47 @@ class Engine {
         break;
       }
       case "CANCEL_ORDER": {
+        const user_id = order.user_id;
+        const { order_id, baseAsset, quoteAsset, side } = order.order_data;
+
         const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === order.order_data.baseAsset
+          (o) => o.baseAsset === baseAsset
         );
+        console.log("====================", order.order_data);
 
         if (!orderbook) {
           throw new Error("No orderbook found");
         }
-        const { order_id } = orderbook.cancelOrder(order.order_data);
 
-        const redis1 = await RedisHandler.createInstance();
-        await redis1.sendApiResponse(
-          {
+        const response = orderbook.cancelOrder(user_id, order_id, side);
+
+        const redis = await RedisHandler.createInstance();
+        //update balance
+        if (response.data) {
+          response.data.status = "cancelled"
+          settleBalanceAfterTradeCancellation(
+            user_id,
+            response.data.quantity,
+            response.data.filled,
+            response.data.price,
+            response.data.side,
+            quoteAsset,
+            baseAsset
+          );
+          const cancel_order = {
             order_id,
-            message: "Order cancelled successfully",
-          },
-          engine_request_id
-        );
+            status: response.data.status,
+          };
+          console.log("cancel data",cancel_order)
+          await redis.sendToDB({
+            action: "CANCEL_ORDER",
+            cancel_order,
+          });
+          orderbook.publishSnapshot();
+        }
+        await redis.sendApiResponse(response, engine_request_id);
+        console.log("====================", response);
+
         break;
       }
     }

@@ -20,6 +20,18 @@ export const OrderRepo = {
     });
   },
 
+  cancelOrder: async (data: {
+    order_id: string;
+    status: "cancelled";
+  }) => {
+    return prisma.order.update({
+      data: { status: data.status },
+      where: {
+        order_id: data.order_id,
+      },
+    });
+  },
+
   create: async (data: Order) => {
     return prisma.order.create({ data });
   },

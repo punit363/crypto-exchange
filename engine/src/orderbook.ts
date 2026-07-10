@@ -377,34 +377,55 @@ class Orderbook {
     }
   };
 
-  cancelOrder = (order_data: { order_id: string }) => {
-    //Loop through both the bids and asks array
-    //collect indexes of matches wrt order_id
-    //In this same iteration reduce amounts from bookWithQuantity object
-    //use the previous index array to filter from orderbook
+  cancelOrder = (user_id: string, order_id: string, side: string) => {
+    let cancelled_order;
 
-    const asks_array_index: number[] = [];
-    const bids_array_index: number[] = [];
-    this.asks.forEach((o) => {
-      if (o.orderId == order_data.order_id) {
-        asks_array_index.push(this.asks.indexOf(o));
-        this.bookWithQuantity.asks[o.price] -= o.quantity;
+    if (side === "sell") {
+      const idx = this.asks.findIndex(
+        (o) => o.orderId === order_id && o.userID === user_id
+      );
+
+      if (idx !== -1) {
+        cancelled_order = this.asks[idx];
+        this.bookWithQuantity.asks[cancelled_order.price] -=
+          cancelled_order.quantity - cancelled_order.filled;
+        if (this.bookWithQuantity.asks[cancelled_order.price] <= 0) {
+          delete this.bookWithQuantity.asks[cancelled_order.price];
+        }
+        this.asks.splice(idx, 1);
       }
-    });
-    this.bids.forEach((o) => {
-      if (o.orderId == order_data.order_id) {
-        bids_array_index.push(this.bids.indexOf(o));
-        this.bookWithQuantity.bids[o.price] -= o.quantity;
+    } else if (side === "buy") {
+      const idx = this.bids.findIndex(
+        (o) => o.orderId === order_id && o.userID === user_id
+      );
+
+      if (idx !== -1) {
+        cancelled_order = this.bids[idx];
+        this.bookWithQuantity.bids[cancelled_order.price] -=
+          cancelled_order.quantity - cancelled_order.filled;
+        if (this.bookWithQuantity.bids[cancelled_order.price] <= 0) {
+          delete this.bookWithQuantity.bids[cancelled_order.price];
+        }
+        this.bids.splice(idx, 1);
       }
-    });
+    }
 
-    this.bids = this.bids.filter((_, idx) => !bids_array_index.includes(idx));
-    this.asks = this.asks.filter((_, idx) => !asks_array_index.includes(idx));
+    let response;
+    if (!cancelled_order) {
+      response = {
+        data: cancelled_order,
+        status: "FAILED",
+        message: "Order not found",
+      };
+    } else {
+      response = {
+        data: cancelled_order,
+        status: "SUCCESS",
+        message: "Order cancelled successfully",
+      };
+    }
 
-    console.log(asks_array_index, "asks_array_index order");
-    console.log(bids_array_index, "bids_array_index order");
-    console.log(this.bookWithQuantity, "bookWithQuantity order");
-    return { order_id: order_data.order_id };
+    return response;
   };
 }
 

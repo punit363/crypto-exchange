@@ -283,8 +283,8 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
     }
 
     const orders = await OrderRepo.getUserOrders(userId, market, type);
-    console.log("order-----------------")
-    console.log("order-----------------",orders)
+    console.log("order-----------------");
+    console.log("order-----------------", orders);
 
     // Map Prisma output to stringify Decimals and Dates for the frontend
     const formattedOrders = orders.map((order) => ({
@@ -316,8 +316,8 @@ const getOpenOrder = async (req: Request, res: Response): Promise<any> => {
     }
 
     const orders = await OrderRepo.getUserOrders(userId, market, type);
-    console.log("order-----------------")
-    console.log("order-----------------",orders)
+    console.log("order-----------------");
+    console.log("order-----------------", orders);
 
     // Map Prisma output to stringify Decimals and Dates for the frontend
     const formattedOrders = orders.map((order) => ({
@@ -338,29 +338,36 @@ const getOpenOrder = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-// const cancelOrder = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const { order_id, user_id } = req.body;
+const cancelOrder = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { order_id, user_id, side, base_asset, quote_asset } = req.body;
 
-//     if (!order_id) {
-//       return res.status(400).send({ error: "Missing required fields" });
-//     }
+    if (!order_id) {
+      return res.status(400).send({ error: "Missing required fields" });
+    }
 
-//     const redis = await RedisHandler.createInstance();
-//     const order_response = await redis.sendAndAwait({
-//       action: "CANCEL_ORDER",
-//       user_id,
-//       order_data: {
-//         order_id,
-//       },
-//     });
+    const redis = await RedisHandler.createInstance();
 
-//     console.log(order_response, "Order response");
-//     return res.send({ data: order_response });
-//   } catch (error) {
-//     console.error("Error in order/cancelOrder:", error);
-//     return res.status(500).send({ error: "Internal Server Error" });
-//   }
-// };
+    const order_response = await redis.sendAndAwait({
+      type: "ORDER",
+      order: {
+        user_id,
+        action: "CANCEL_ORDER",
+        order_data: {
+          order_id,
+          side,
+          baseAsset: base_asset,
+          quoteAsset: quote_asset,
+        },
+      },
+    });
 
-export { placeOrder, getOrder,getOpenOrder };
+    console.log(order_response, "Order response");
+    return res.send({ data: order_response });
+  } catch (error) {
+    console.error("Error in order/cancelOrder:", error);
+    return res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+export { placeOrder, getOrder, getOpenOrder, cancelOrder };

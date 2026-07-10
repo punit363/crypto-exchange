@@ -25,6 +25,7 @@ const dbMain = async () => {
         action: string;
         order?: Order;
         update_order?: any;
+        cancel_order?: any;
         trades?: Trade[];
         transaction?: Transaction;
         balance?: Balance;
@@ -49,6 +50,17 @@ const dbMain = async () => {
             for (const update of update_data) {
               await OrderRepo.updateFilledAndStatus(update);
             }
+          } else {
+            throw Error("Order Update Data not Found");
+          }
+          break;
+        }
+        case "CANCEL_ORDER": {
+          const cancel_order = db_data.cancel_order;
+          console.log("cancel_order------- data",cancel_order)
+          if (cancel_order) {
+            console.log("cancel_____________order------- data",cancel_order)
+              await OrderRepo.cancelOrder(cancel_order);
           } else {
             throw Error("Order Update Data not Found");
           }
