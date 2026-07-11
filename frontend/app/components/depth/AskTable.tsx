@@ -1,3 +1,4 @@
+const SCALE = 100_000_000
 
 export const AskTable = ({ asks }: { asks: [string, string][] }) => {
     let currentTotal = 0;
@@ -32,15 +33,15 @@ function Ask({price, quantity, total, maxTotal}: {price: string, quantity: strin
         transition: "width 0.3s ease-in-out",
         }}
     ></div>
-    <div className="flex justify-between text-xs w-full">
-        <div>
-            {price}
+    <div className="flex justify-between text-xs w-full z-10">
+        <div className="text-[#F94D5C] tabular-nums">
+            {(Number(price) / SCALE).toFixed(2)}
         </div>
-        <div>
-            {quantity}
+        <div className="text-slate-300 tabular-nums">
+            {(Number(quantity) / SCALE).toFixed(4)}
         </div>
-        <div>
-            {total?.toFixed(2)}
+        <div className="text-slate-500 tabular-nums">
+            {(total / SCALE).toFixed(4)}
         </div>
     </div>
     </div>

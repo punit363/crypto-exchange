@@ -4,118 +4,128 @@ import { useEffect, useState } from "react";
 import { wsClient } from "../utils/wsClient";
 import { getTrades } from "../utils/httpClient";
 
+const SCALE = 100_000_000;
 // 1. Renamed to TradeEvent to avoid collision with the imported Trade type
 interface TradeEvent {
-    tradeId: string;
-    price: string | number;
-    quantity: string | number;
-    bucketTime: number;
-    isBuyerMaker?: boolean; 
+  tradeId: string;
+  price: string | number;
+  quantity: string | number;
+  bucketTime: number;
+  isBuyerMaker?: boolean;
 }
 
 export function Trades({ market }: { market: string }) {
-    const [trades, setTrades] = useState<TradeEvent[]>([]);
+  const [trades, setTrades] = useState<TradeEvent[]>([]);
 
-    useEffect(() => {
-        let isMounted = true;
+  useEffect(() => {
+    let isMounted = true;
 
-        // 2. Fetch the initial snapshot and safely map the data
-        getTrades(market).then((initialTrades: any[]) => {
-            if (isMounted && Array.isArray(initialTrades)) {
-                // Map whatever the backend sends into our strict local TradeEvent format
-                const formattedTrades = initialTrades.map((t) => ({
-                    tradeId: t.tradeId || t.id || t.uuid || Math.random().toString(),
-                    price: t.price,
-                    quantity: t.quantity || t.qty || t.size || "0",
-                    bucketTime: t.bucketTime || t.timestamp || t.time || Date.now(),
-                    isBuyerMaker: t.isBuyerMaker
-                }));
-                
-                setTrades(formattedTrades.slice(0, 50));
-            }
-        }).catch(err => console.error("Failed to fetch initial trades", err));
+    // 2. Fetch the initial snapshot and safely map the data
+    getTrades(market)
+      .then((initialTrades: any[]) => {
+        if (isMounted && Array.isArray(initialTrades)) {
+          // Map whatever the backend sends into our strict local TradeEvent format
+          const formattedTrades = initialTrades.map((t) => ({
+            tradeId: t.tradeId || t.id || t.uuid || Math.random().toString(),
+            price: t.price / SCALE,
+            quantity:
+              t.quantity / SCALE || t.qty / SCALE || t.size / SCALE || "0",
+            bucketTime: t.bucketTime || t.timestamp || t.time || Date.now(),
+            isBuyerMaker: t.isBuyerMaker,
+          }));
 
-        wsClient.connect();
+          setTrades(formattedTrades.slice(0, 50));
+        }
+      })
+      .catch((err) => console.error("Failed to fetch initial trades", err));
 
-        const handleTradeUpdate = (data: any) => {
-            // 1. Unwrap the backend payload!
-            const fills = data.trade || data; 
+    wsClient.connect();
 
-            // 2. Safely check if it's an array and actually has trades in it
-            if (!isMounted || !Array.isArray(fills) || fills.length === 0) return;
-            
-            setTrades((prevTrades) => {
-                const formattedFills = fills.map(fill => ({
-                    tradeId: fill.tradeId || fill.id || Math.random().toString(),
-                    price: fill.price,
-                    quantity: fill.quantity || fill.size,
-                    bucketTime: fill.bucketTime || fill.timestamp || Date.now(),
-                    isBuyerMaker: fill.isBuyerMaker
-                }));
+    const handleTradeUpdate = (data: any) => {
+      // 1. Unwrap the backend payload!
+      const fills = data.trade || data;
 
-                const merged = [...formattedFills, ...prevTrades];
-                return merged.slice(0, 50);
-            });
-        };
+      // 2. Safely check if it's an array and actually has trades in it
+      if (!isMounted || !Array.isArray(fills) || fills.length === 0) return;
 
-        wsClient.subscribe(market, "TRADE", handleTradeUpdate);
+      setTrades((prevTrades) => {
+        const formattedFills = fills.map((fill) => ({
+          tradeId: fill.tradeId || fill.id || Math.random().toString(),
+          price: fill.price / SCALE,
+          quantity: fill.quantity / SCALE || fill.size / SCALE,
+          bucketTime: fill.bucketTime || fill.timestamp || Date.now(),
+          isBuyerMaker: fill.isBuyerMaker,
+        }));
 
-        return () => {
-            isMounted = false;
-            wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
-        };
-    }, [market]);
+        const merged = [...formattedFills, ...prevTrades];
+        return merged.slice(0, 50);
+      });
+    };
 
-    return (
-        <div className="flex flex-col h-full w-full bg-[#14151B]">
-            {/* Header */}
-            <div className="flex justify-between px-3 py-1 mt-1 text-xs font-medium text-slate-500 border-b border-slate-800/50">
-                <div className="w-1/3 text-left">Price</div>
-                <div className="w-1/3 text-right">Size</div>
-                <div className="w-1/3 text-right">Time</div>
-            </div>
+    wsClient.subscribe(market, "TRADE", handleTradeUpdate);
 
-            {/* Trade List */}
-            <div className="flex-1 overflow-y-auto no-scrollbar pt-1">
-                {trades.length === 0 ? (
-                    <div className="flex items-center justify-center h-20 text-slate-500 font-sans text-xs">
-                        Waiting for trades...
-                    </div>
-                ) : (
-                    trades.map((trade, index) => {
-                        const timeString = new Date(trade.bucketTime).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false 
-                        });
+    return () => {
+      isMounted = false;
+      wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
+    };
+  }, [market]);
 
-                        // Premium Backpack styling: green for buys, red for sells
-                        const isBuy = trade.isBuyerMaker === false; // Maker sold = taker bought
-                        const priceColor = trade.isBuyerMaker !== undefined 
-                            ? (isBuy ? "text-[#00C278]" : "text-[#F94D5C]") 
-                            : "text-white"; 
+  return (
+    <div className="flex flex-col h-full w-full bg-[#14151B]">
+      {/* Header */}
+      <div className="flex justify-between px-3 py-1 mt-1 text-xs font-medium text-slate-500 border-b border-slate-800/50">
+        <div className="w-1/3 text-left">Price</div>
+        <div className="w-1/3 text-right">Size</div>
+        <div className="w-1/3 text-right">Time</div>
+      </div>
 
-                        return (
-                            <div 
-                                // FIX: Appended index to the tradeId to guarantee uniqueness!
-                                key={`${trade.tradeId}-${index}`} 
-                                className="flex justify-between px-3 py-[3px] text-[11px] tabular-nums hover:bg-slate-800/50 cursor-pointer transition-colors"
-                            >
-                                <div className={`w-1/3 text-left ${priceColor}`}>
-                                    {Number(trade.price).toFixed(2)}
-                                </div>
-                                <div className="w-1/3 text-right text-slate-300">
-                                    {Number(trade.quantity).toFixed(4)}
-                                </div>
-                                <div className="w-1/3 text-right text-slate-500">
-                                    {timeString}
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-        </div>
-    );
+      {/* Trade List */}
+      <div className="flex-1 overflow-y-auto no-scrollbar pt-1">
+        {trades.length === 0 ? (
+          <div className="flex items-center justify-center h-20 text-slate-500 font-sans text-xs">
+            Waiting for trades...
+          </div>
+        ) : (
+          trades.map((trade, index) => {
+            const timeString = new Date(trade.bucketTime).toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              }
+            );
+
+            // Premium Backpack styling: green for buys, red for sells
+            const isBuy = trade.isBuyerMaker === false; // Maker sold = taker bought
+            const priceColor =
+              trade.isBuyerMaker !== undefined
+                ? isBuy
+                  ? "text-[#00C278]"
+                  : "text-[#F94D5C]"
+                : "text-white";
+
+            return (
+              <div
+                // FIX: Appended index to the tradeId to guarantee uniqueness!
+                key={`${trade.tradeId}-${index}`}
+                className="flex justify-between px-3 py-[3px] text-[11px] tabular-nums hover:bg-slate-800/50 cursor-pointer transition-colors"
+              >
+                <div className={`w-1/3 text-left ${priceColor}`}>
+                  {Number(trade.price).toFixed(2)}
+                </div>
+                <div className="w-1/3 text-right text-slate-300">
+                  {Number(trade.quantity).toFixed(4)}
+                </div>
+                <div className="w-1/3 text-right text-slate-500">
+                  {timeString}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }

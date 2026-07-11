@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getUserOrders } from "../utils/httpClient";
 
 const MOCK_USER_ID = "usr_xslwr9hnet"; 
+const SCALE = 100_000_000;
 
 export function OrdersPanel({ market }: { market: string }) {
     const [activeTab, setActiveTab] = useState<'open' | 'history'>('open');
@@ -152,19 +153,37 @@ export function OrdersPanel({ market }: { market: string }) {
                                             {market.replace("_", "/")}
                                         </div>
                                         <div className="flex items-center">
-                                            <span className="capitalize text-slate-400">{type}</span>
-                                            <span className={`ml-2 font-medium ${isBuy ? 'text-[#00C278]' : 'text-[#F94D5C]'}`}>
-                                                {isBuy ? 'Buy' : 'Sell'}
-                                            </span>
+                      <span className="capitalize text-slate-400">{type}</span>
+                      <span
+                        className={`ml-2 font-medium ${
+                          isBuy ? "text-[#00C278]" : "text-[#F94D5C]"
+                        }`}
+                      >
+                        {isBuy ? "Buy" : "Sell"}
+                      </span>
+                    </div>
+                    <div className="text-right tabular-nums text-slate-300 flex items-center justify-end">
+                      {(Number(order.price) / SCALE).toFixed(2)}
+                    </div>
+                    <div className="text-right tabular-nums text-slate-300 flex items-center justify-end">
+                      {(Number(order.quantity) / SCALE).toFixed(4)}
+                    </div>
+                    <div className="text-right tabular-nums text-slate-400 flex items-center justify-end">
+                      {(Number(filledQty) / SCALE).toFixed(4)}
+                    </div>
+                    <div className="text-right flex items-center justify-end gap-2">
+                      <span className="capitalize text-slate-300">
+                        {order.status}
+                      </span>
                                         </div>
                                         <div className="text-right tabular-nums text-slate-300 flex items-center justify-end">
-                                            {Number(order.price).toFixed(2)}
+                                            {Number(order.price / SCALE).toFixed(2)}
                                         </div>
                                         <div className="text-right tabular-nums text-slate-300 flex items-center justify-end">
-                                            {Number(order.quantity).toFixed(4)}
+                                            {Number(order.quantity / SCALE).toFixed(4)}
                                         </div>
                                         <div className="text-right tabular-nums text-slate-400 flex items-center justify-end">
-                                            {Number(filledQty).toFixed(4)}
+                                            {Number(order.filled_quantity ?? order.filled ?? 0 / SCALE).toFixed(4)}
                                         </div>
                                         <div className="text-right flex items-center justify-end gap-2">
                                             <span className="capitalize text-slate-300">

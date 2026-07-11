@@ -1,9 +1,9 @@
 import fs from "fs";
 import { Orderbook, Fills } from "./orderbook";
 import RedisHandler from "./redis";
-import { snapshot } from "node:test";
 import { generateCandleId } from "./utils";
 
+const SCALE = 100_000_000;
 interface UserBalance {
   [key: string]: {
     available: number;
@@ -18,11 +18,11 @@ const balance_arr: [string, UserBalance][] = [
     "usr_6q9g3syt014",
     {
       INR: {
-        available: 100000,
+        available: 10000000000000,
         locked: 0,
       },
       BTC: {
-        available: 10000,
+        available: 1000000000000,
         locked: 0,
       },
     },
@@ -31,11 +31,11 @@ const balance_arr: [string, UserBalance][] = [
     "usr_xslwr9hnet",
     {
       INR: {
-        available: 200000,
+        available: 20000000000000,
         locked: 0,
       },
       BTC: {
-        available: 20000,
+        available: 2000000000000,
         locked: 0,
       },
     },
@@ -72,17 +72,31 @@ const checkAndLockBalance = (
 ) => {
   const userBalance = balance.get(user_id);
   if (!userBalance) {
-    return { message: "Balance does not exist. Register user first" };
+    throw new Error(
+      `CRITICAL: Balance ledger completely missing for user: ${user_id}`
+    );
   }
 
   if (side == "buy") {
-    if (userBalance[quoteAsset].available < quantity * price) {
+    if (!userBalance[quoteAsset])
+      throw new Error(
+        `CRITICAL: ${quoteAsset} ledger missing for user: ${user_id}`
+      );
+
+    const quoteValue = Math.floor((quantity * price) / SCALE);
+
+    if (userBalance[quoteAsset].available < quoteValue) {
       throw new Error("Insufficient balance for buy order");
     }
 
-    userBalance[quoteAsset].available -= quantity * price;
-    userBalance[quoteAsset].locked += quantity * price;
+    userBalance[quoteAsset].available -= quoteValue;
+    userBalance[quoteAsset].locked += quoteValue;
   } else if (side == "sell") {
+    if (!userBalance[baseAsset])
+      throw new Error(
+        `CRITICAL: ${baseAsset} ledger missing for user: ${user_id}`
+      );
+
     if (userBalance[baseAsset].available < quantity) {
       throw new Error("Insufficient balance for sell order");
     }
@@ -107,11 +121,23 @@ const settleBalanceAfterTrade = (
       if (!userBalance || !otherUserBalance) {
         throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
       }
+      if (
+        !userBalance[baseAsset] ||
+        !userBalance[quoteAsset] ||
+        !otherUserBalance[baseAsset] ||
+        !otherUserBalance[quoteAsset]
+      ) {
+        throw new Error(
+          `Specific asset ledger missing during settleBalanceAfterTrade`
+        );
+      }
+
+      const quoteValue = Math.floor((fill.quantity * fill.price) / SCALE);
 
       userBalance[baseAsset].locked -= fill.quantity;
-      userBalance[quoteAsset].available += fill.quantity * fill.price;
+      userBalance[quoteAsset].available += quoteValue;
 
-      otherUserBalance[quoteAsset].locked -= fill.quantity * fill.price;
+      otherUserBalance[quoteAsset].locked -= quoteValue;
       otherUserBalance[baseAsset].available += fill.quantity;
     }
   } else if (side === "buy") {
@@ -123,12 +149,24 @@ const settleBalanceAfterTrade = (
       if (!userBalance || !otherUserBalance) {
         throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
       }
+      if (
+        !userBalance[baseAsset] ||
+        !userBalance[quoteAsset] ||
+        !otherUserBalance[baseAsset] ||
+        !otherUserBalance[quoteAsset]
+      ) {
+        throw new Error(
+          `Specific asset ledger missing during settleBalanceAfterTrade`
+        );
+      }
 
-      userBalance[quoteAsset].locked -= fill.quantity * fill.price;
+      const quoteValue = Math.floor((fill.quantity * fill.price) / SCALE);
+
+      userBalance[quoteAsset].locked -= quoteValue;
       userBalance[baseAsset].available += fill.quantity;
 
       otherUserBalance[baseAsset].locked -= fill.quantity;
-      otherUserBalance[quoteAsset].available += fill.quantity * fill.price;
+      otherUserBalance[quoteAsset].available += quoteValue;
     }
   } else {
     throw new Error("Order side must be buy or sell");
@@ -145,24 +183,30 @@ const settleBalanceAfterTradeCancellation = (
   baseAsset: string
 ) => {
   const userBalance = balance.get(userId);
+
+  if (!userBalance) {
+    throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
+  }
+  //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+  const remainingQty = quantity - filled;
+
   if (side === "sell") {
-    //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
-
-    if (!userBalance) {
-      throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
-    }
-
-    userBalance[baseAsset].locked -= quantity - filled;
-    userBalance[baseAsset].available += quantity - filled;
+    if (!userBalance[baseAsset])
+      throw new Error(
+        `CRITICAL: ${baseAsset} ledger missing for user: ${userId}`
+      );
+    userBalance[baseAsset].locked -= remainingQty;
+    userBalance[baseAsset].available += remainingQty;
   } else if (side === "buy") {
-    //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
+    if (!userBalance[quoteAsset])
+      throw new Error(
+        `CRITICAL: ${quoteAsset} ledger missing for user: ${userId}`
+      );
 
-    if (!userBalance) {
-      throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
-    }
+    const remainingQuoteValue = Math.floor((remainingQty * price) / SCALE);
 
-    userBalance[quoteAsset].locked -= (quantity - filled) * price;
-    userBalance[quoteAsset].available += (quantity - filled) * price;
+    userBalance[quoteAsset].locked -= remainingQuoteValue;
+    userBalance[quoteAsset].available += remainingQuoteValue;
   } else {
     throw new Error("Order side must be buy or sell");
   }
@@ -293,7 +337,7 @@ class Engine {
       action: string;
       user_id: string;
       order_data: {
-        order_id: any;
+        order_id?: any;
         price?: any;
         quantity?: any;
         side?: any;
@@ -316,7 +360,7 @@ class Engine {
 
         const { price, quantity, side, type, baseAsset, quoteAsset } =
           order.order_data;
-
+        console.log("step------------=========", order.order_data);
         checkAndLockBalance(
           order.user_id,
           quantity,
@@ -444,7 +488,7 @@ class Engine {
         const redis = await RedisHandler.createInstance();
         //update balance
         if (response.data) {
-          response.data.status = "cancelled"
+          response.data.status = "cancelled";
           settleBalanceAfterTradeCancellation(
             user_id,
             response.data.quantity,
@@ -458,7 +502,7 @@ class Engine {
             order_id,
             status: response.data.status,
           };
-          console.log("cancel data",cancel_order)
+          console.log("cancel data", cancel_order);
           await redis.sendToDB({
             action: "CANCEL_ORDER",
             cancel_order,
@@ -467,6 +511,28 @@ class Engine {
         }
         await redis.sendApiResponse(response, engine_request_id);
         console.log("====================", response);
+
+        break;
+      }
+      case "FETCH_OPEN_ORDERS": {
+        const user_id = order.user_id;
+        const { baseAsset, quoteAsset } = order.order_data;
+
+        const orderbook = this.orderbooks.find(
+          (o) => o.baseAsset === baseAsset
+        );
+        console.log("====================fetch", order.order_data);
+
+        if (!orderbook) {
+          throw new Error("No orderbook found");
+        }
+
+        const response = orderbook.fetchOpenOrders();
+
+        const redis = await RedisHandler.createInstance();
+
+        await redis.sendApiResponse(response, engine_request_id);
+        console.log("====================fetch", response);
 
         break;
       }

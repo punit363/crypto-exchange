@@ -1,3 +1,4 @@
+const SCALE = 100_000_000
 
 export const BidTable = ({ bids }: {bids: [string, string][]}) => {
     let currentTotal = 0; 
@@ -33,14 +34,14 @@ function Bid({ price, quantity, total, maxTotal }: { price: string, quantity: st
             }}
         ></div>
             <div className={`flex justify-between text-xs w-full`}>
-                <div>
-                    {price}
+                <div className="text-[#00C278] tabular-nums">
+                    {(Number(price) / SCALE).toFixed(2)}
                 </div>
-                <div>
-                    {quantity}
+                <div className="text-slate-300 tabular-nums">
+                    {(Number(quantity) / SCALE).toFixed(4)}
                 </div>
-                <div>
-                    {total.toFixed(2)}
+                <div className="text-slate-500 tabular-nums">
+                    {(total / SCALE).toFixed(4)}
                 </div>
             </div>
         </div>

@@ -7,6 +7,7 @@ import { KLine } from "../utils/types";
 import { wsClient } from "../utils/wsClient";
 
 const INTERVALS = ["1m", "5m", "15m", "1h", "1d"];
+const SCALE = 100000000;
 
 export function TradeView({ market }: { market: string }) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -60,10 +61,10 @@ export function TradeView({ market }: { market: string }) {
           chartRef.current,
           [
             ...klineData?.map((x) => ({
-              close: parseFloat(x.close),
-              high: parseFloat(x.high),
-              low: parseFloat(x.low),
-              open: parseFloat(x.open),
+              close: parseFloat(x.close) / SCALE,
+              high: parseFloat(x.high) / SCALE,
+              low: parseFloat(x.low) / SCALE,
+              open: parseFloat(x.open) / SCALE,
               timestamp: new Date(x.end),
             })),
           ].sort((x, y) =>
@@ -86,7 +87,7 @@ export function TradeView({ market }: { market: string }) {
 
     const handleTradeUpdate = (fills: any[]) => {
       if (fills && fills.length > 0 && chartManagerRef.current) {
-        const latestPrice = Number(fills[0].price);
+        const latestPrice = Number(fills[0].price) / SCALE;
         const tradeTime = fills[0].bucketTime || Date.now();
         chartManagerRef.current.updateLivePrice(latestPrice, tradeTime);
       }

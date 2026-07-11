@@ -1,5 +1,3 @@
-import { Prisma } from "@prisma/client";
-
 interface User {
   user_id: string;
   email: string;
@@ -15,7 +13,7 @@ interface Transaction {
   user_id: string;
   type: string;
   asset: string;
-  amount: Prisma.Decimal;
+  amount: number;
   status: string;
 }
 
@@ -25,8 +23,8 @@ interface Trade {
   other_user_id: string;
   order_id: string;
   other_order_id: string;
-  quantity: Prisma.Decimal;
-  price: Prisma.Decimal;
+  quantity: number;
+  price: number;
   base_asset: string;
   quote_asset: string;
   side: string;
@@ -37,18 +35,18 @@ interface Candle {
   interval: string;
   base_asset: string;
   quote_asset: string;
-  open: Prisma.Decimal;
-  high: Prisma.Decimal;
-  low: Prisma.Decimal;
-  close: Prisma.Decimal;
-  volume: Prisma.Decimal;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
 interface Balance {
   id: string;
   user_id: string;
   asset: string;
-  amount: Prisma.Decimal;
+  amount: number;
   type: string;
   status: string;
   ref_id: string;
@@ -59,9 +57,9 @@ interface Order {
   user_id: string;
   side: string;
   type: string;
-  quantity: Prisma.Decimal;
-  filled_quantity: Prisma.Decimal;
-  price: Prisma.Decimal;
+  quantity: number;
+  filled_quantity: number;
+  price: number;
   status: string;
   base_asset: string;
   quote_asset: string;

@@ -1,6 +1,7 @@
-import { AnyNaptrRecord } from "dns";
 import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
+
+const SCALE = 100_000_000;
 
 interface Order {
   orderId: string;
@@ -97,7 +98,7 @@ class Orderbook {
   executeSellOrder = (
     user_id: string,
     order_data: {
-      order_id: any;
+      order_id?: any;
       price?: any;
       quantity?: any;
       side?: any;
@@ -196,7 +197,7 @@ class Orderbook {
   executeBuyOrder = (
     user_id: string,
     order_data: {
-      order_id: any;
+      order_id?: any;
       price?: any;
       quantity?: any;
       side?: any;
@@ -215,7 +216,7 @@ class Orderbook {
 
     for (const [idx, o] of this.asks.entries()) {
       if (type == "market") {
-        const affordableBase = price / o.price;
+        const affordableBase = Math.floor((price * SCALE) / o.price);
         const availableBase = o.quantity - o.filled;
         const fillQuantity = Math.min(affordableBase, availableBase);
 
@@ -245,7 +246,7 @@ class Orderbook {
         });
 
         filled += fillQuantity;
-        price -= fillQuantity * o.price;
+        price -= Math.floor((fillQuantity * o.price) / SCALE);
 
         if (o.quantity === o.filled) {
           ask_splice_indexes.push(this.asks.indexOf(o));
@@ -337,7 +338,7 @@ class Orderbook {
 
   placeOrder = (
     user_id: string,
-    order_data: { order_id: any; price?: any; quantity?: any; side?: any }
+    order_data: { order_id?: any; price?: any; quantity?: any; side?: any }
   ) => {
     console.log("\n Book with Quantity", this.bookWithQuantity);
     if (order_data.side == "sell") {
@@ -375,6 +376,10 @@ class Orderbook {
     } else {
       throw new Error(`Invalid order side provided: ${order_data.side}`);
     }
+  };
+
+  fetchOpenOrders = () => {
+    return { asks: this.asks, bids: this.bids };
   };
 
   cancelOrder = (user_id: string, order_id: string, side: string) => {
