@@ -36,6 +36,19 @@ type EngineRequest = {
   type: string;
   order?: OrderToEngine;
   transaction?: BalanceUpdate;
-}
+};
 
-export { OrderToEngine, UserData, BalanceUpdate, EngineRequest };
+type EngineResponse = {
+  data?: any;
+  eng_status_code: number;
+  status: "SUCCESS" | "FAILED";
+  message: string;
+};
+
+export {
+  OrderToEngine,
+  UserData,
+  BalanceUpdate,
+  EngineRequest,
+  EngineResponse,
+};

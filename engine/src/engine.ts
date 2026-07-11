@@ -44,15 +44,19 @@ const balance_arr: [string, UserBalance][] = [
 
 let balance = new Map<string, UserBalance>(balance_arr);
 
-const checkUserBalance = (user_id: any) => {
+const checkUserBalance = (
+  user_id: string,
+  baseAsset: string,
+  quoteAsset: string
+) => {
   const user_balance = balance.get(user_id);
   if (!user_balance) {
     balance.set(user_id, {
-      INR: {
+      [quoteAsset]: {
         available: 0,
         locked: 0,
       },
-      BTC: {
+      [baseAsset]: {
         available: 0,
         locked: 0,
       },
@@ -310,7 +314,6 @@ class Engine {
 
       balance = new Map<string, UserBalance>(parsed.balances);
     } catch {
-      // No snapshot found, start fresh
       this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
       console.log("No snapshot found, starting fresh");
     }
@@ -350,190 +353,263 @@ class Engine {
   ) => {
     switch (order.action) {
       case "PLACE_ORDER": {
-        const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === order.order_data.baseAsset
-        );
-
-        if (!orderbook) {
-          throw new Error("No orderbook found");
-        }
-
-        const { price, quantity, side, type, baseAsset, quoteAsset } =
-          order.order_data;
-        console.log("step------------=========", order.order_data);
-        checkAndLockBalance(
-          order.user_id,
-          quantity,
-          price,
-          side,
-          quoteAsset,
-          baseAsset
-        );
-        console.log("0---------------------");
-        const {
-          order_id,
-          fills,
-          status,
-          filled,
-          unsold_market_order_quanity = null,
-          unused_market_order_amount = null,
-        } = orderbook.placeOrder(order.user_id, order.order_data);
-        console.log("1---------------------");
-        settleBalanceAfterTrade(
-          fills,
-          order.order_data.side,
-          order.order_data.quoteAsset,
-          order.order_data.baseAsset
-        );
-        console.log("2---------------------");
         const redis = await RedisHandler.createInstance();
-        console.log("3---------------------");
-        await redis.sendApiResponse(
-          {
+        try {
+          const orderbook = this.orderbooks.find(
+            (o) => o.baseAsset === order.order_data.baseAsset
+          );
+
+          if (!orderbook) {
+            throw new Error("No orderbook found");
+          }
+
+          const { price, quantity, side, type, baseAsset, quoteAsset } =
+            order.order_data;
+          console.log("step------------=========", order.order_data);
+          checkAndLockBalance(
+            order.user_id,
+            quantity,
+            price,
+            side,
+            quoteAsset,
+            baseAsset
+          );
+          console.log("0---------------------");
+          const {
+            order_id,
+            fills,
+            status,
+            filled,
+            unsold_market_order_quanity = null,
+            unused_market_order_amount = null,
+          } = orderbook.placeOrder(order.user_id, order.order_data);
+          console.log("1---------------------");
+          settleBalanceAfterTrade(
+            fills,
+            order.order_data.side,
+            order.order_data.quoteAsset,
+            order.order_data.baseAsset
+          );
+          console.log("2---------------------");
+          console.log("3---------------------");
+          const response = {
             order_id,
             fills,
             unsold_market_order_quanity,
             unused_market_order_amount,
-          },
-          engine_request_id
-        );
-        console.log("4---------------------");
+          };
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              message: "Open Orders were fetched successfully",
+              data: response,
+            },
+            engine_request_id
+          );
+          console.log("4---------------------");
 
-        const trade_publish_data = {
-          market: `${baseAsset}_${quoteAsset}`,
-          trade: fills,
-        };
-        const book_with_quantity_publish_data = {
-          market: `${baseAsset}_${quoteAsset}`,
-          book: orderbook.getBookWithQuantity(),
-        };
+          const trade_publish_data = {
+            market: `${baseAsset}_${quoteAsset}`,
+            trade: fills,
+          };
+          const book_with_quantity_publish_data = {
+            market: `${baseAsset}_${quoteAsset}`,
+            book: orderbook.getBookWithQuantity(),
+          };
 
-        await redis.publishTrade(trade_publish_data);
-        console.log("5---------------------");
+          await redis.publishTrade(trade_publish_data);
+          console.log("5---------------------");
 
-        await redis.publishOrderBookWithQuantity(
-          book_with_quantity_publish_data
-        );
-        console.log("6---------------------");
+          await redis.publishOrderBookWithQuantity(
+            book_with_quantity_publish_data
+          );
+          console.log("6---------------------");
 
-        orderbook.publishSnapshot();
-        console.log("7---------------------");
-
-        await redis.sendToDB({
-          action: "ADD_ORDER",
-          order: {
-            order_id,
-            user_id: order.user_id,
-            side,
-            type,
-            quantity,
-            filled_quantity: filled,
-            price,
-            status,
-            base_asset: baseAsset,
-            quote_asset: quoteAsset,
-          },
-        });
-        console.log("8---------------------");
-
-        if (fills.length > 0) {
-          addCandlesToDB(fills, baseAsset, quoteAsset);
-          console.log("9---------------------");
-
-          const trades = fills.map((fill) => ({
-            trade_id: fill.tradeId,
-            user_id: fill.userId,
-            other_user_id: fill.otherUserId,
-            order_id: fill.orderId,
-            other_order_id: fill.otherOrderId,
-            price: fill.price,
-            quantity: fill.quantity,
-            base_asset: baseAsset,
-            quote_asset: quoteAsset,
-            side,
-          }));
+          orderbook.publishSnapshot();
+          console.log("7---------------------");
 
           await redis.sendToDB({
-            action: "ADD_TRADES",
-            trades,
+            action: "ADD_ORDER",
+            order: {
+              order_id,
+              user_id: order.user_id,
+              side,
+              type,
+              quantity,
+              filled_quantity: filled,
+              price,
+              status,
+              base_asset: baseAsset,
+              quote_asset: quoteAsset,
+            },
           });
-          const update_order = fills.map((fill) => ({
-            order_id: fill.otherOrderId,
-            filled: fill.otherOrderFilled,
-            status: fill.otherOrderStatus,
-          }));
-          await redis.sendToDB({
-            action: "UPDATE_ORDERS",
-            update_order,
-          });
-          console.log("10---------------------");
+          console.log("8---------------------");
+
+          if (fills.length > 0) {
+            addCandlesToDB(fills, baseAsset, quoteAsset);
+            console.log("9---------------------");
+
+            const trades = fills.map((fill) => ({
+              trade_id: fill.tradeId,
+              user_id: fill.userId,
+              other_user_id: fill.otherUserId,
+              order_id: fill.orderId,
+              other_order_id: fill.otherOrderId,
+              price: fill.price,
+              quantity: fill.quantity,
+              base_asset: baseAsset,
+              quote_asset: quoteAsset,
+              side,
+            }));
+
+            await redis.sendToDB({
+              action: "ADD_TRADES",
+              trades,
+            });
+            const update_order = fills.map((fill) => ({
+              order_id: fill.otherOrderId,
+              filled: fill.otherOrderFilled,
+              status: fill.otherOrderStatus,
+            }));
+            await redis.sendToDB({
+              action: "UPDATE_ORDERS",
+              update_order,
+            });
+            console.log("10---------------------");
+          }
+        } catch (error: any) {
+          console.error(
+            "Engine ORDER_PROCESSING_ERROR Intercepted: ",
+            error.message
+          );
+          // Return standardized API error response cleanly over Redis instead of crashing
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during trade execution.",
+            },
+            engine_request_id
+          );
         }
         break;
       }
       case "CANCEL_ORDER": {
-        const user_id = order.user_id;
-        const { order_id, baseAsset, quoteAsset, side } = order.order_data;
-
-        const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === baseAsset
-        );
-        console.log("====================", order.order_data);
-
-        if (!orderbook) {
-          throw new Error("No orderbook found");
-        }
-
-        const response = orderbook.cancelOrder(user_id, order_id, side);
-
         const redis = await RedisHandler.createInstance();
-        //update balance
-        if (response.data) {
-          response.data.status = "cancelled";
-          settleBalanceAfterTradeCancellation(
-            user_id,
-            response.data.quantity,
-            response.data.filled,
-            response.data.price,
-            response.data.side,
-            quoteAsset,
-            baseAsset
-          );
-          const cancel_order = {
-            order_id,
-            status: response.data.status,
-          };
-          console.log("cancel data", cancel_order);
-          await redis.sendToDB({
-            action: "CANCEL_ORDER",
-            cancel_order,
-          });
-          orderbook.publishSnapshot();
-        }
-        await redis.sendApiResponse(response, engine_request_id);
-        console.log("====================", response);
+        try {
+          const user_id = order.user_id;
+          const { order_id, baseAsset, quoteAsset, side } = order.order_data;
 
+          const orderbook = this.orderbooks.find(
+            (o) => o.baseAsset === baseAsset
+          );
+          console.log("====================", order.order_data);
+
+          if (!orderbook) {
+            throw new Error("No orderbook found");
+          }
+
+          const response = orderbook.cancelOrder(user_id, order_id, side);
+
+          //update balance
+          if (response.data) {
+            response.data.status = "cancelled";
+            settleBalanceAfterTradeCancellation(
+              user_id,
+              response.data.quantity,
+              response.data.filled,
+              response.data.price,
+              response.data.side,
+              quoteAsset,
+              baseAsset
+            );
+            const cancel_order = {
+              order_id,
+              status: response.data.status,
+            };
+            console.log("cancel data", cancel_order);
+            await redis.sendToDB({
+              action: "CANCEL_ORDER",
+              cancel_order,
+            });
+            orderbook.publishSnapshot();
+          }
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              message: "Order was cancelled successfully",
+              data: response,
+            },
+            engine_request_id
+          );
+          console.log("====================", response);
+        } catch (error: any) {
+          console.error(
+            "Engine CANCEL_ORDER_ERROR Intercepted: ",
+            error.message
+          );
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during order cancellation.",
+            },
+            engine_request_id
+          );
+        }
         break;
       }
       case "FETCH_OPEN_ORDERS": {
-        const user_id = order.user_id;
-        const { baseAsset, quoteAsset } = order.order_data;
-
-        const orderbook = this.orderbooks.find(
-          (o) => o.baseAsset === baseAsset
-        );
-        console.log("====================fetch", order.order_data);
-
-        if (!orderbook) {
-          throw new Error("No orderbook found");
-        }
-
-        const response = orderbook.fetchOpenOrders();
-
         const redis = await RedisHandler.createInstance();
+        try {
+          const user_id = order.user_id;
+          const { baseAsset, quoteAsset } = order.order_data;
 
-        await redis.sendApiResponse(response, engine_request_id);
-        console.log("====================fetch", response);
+          const orderbook = this.orderbooks.find(
+            (o) => o.baseAsset === baseAsset
+          );
+          console.log("====================fetch", order.order_data);
 
+          if (!orderbook) {
+            throw new Error("No orderbook found");
+          }
+
+          const response = orderbook.fetchOpenOrders();
+
+          const redis = await RedisHandler.createInstance();
+
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              message: "Open Orders were fetched successfully",
+              data: response,
+            },
+            engine_request_id
+          );
+          console.log("====================fetch", response);
+        } catch (error: any) {
+          console.error(
+            "Engine FETCH_OPEN_ORDERS_ERROR Intercepted: ",
+            error.message
+          );
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during order fetch",
+            },
+            engine_request_id
+          );
+        }
         break;
       }
     }
@@ -549,33 +625,24 @@ class Engine {
     },
     engine_request_id: string
   ) => {
-    const { tx_id, user_id, asset, type, amount } = transaction;
+    const redis = await RedisHandler.createInstance();
+    try {
+      const { tx_id, user_id, asset, type, amount } = transaction;
 
-    const user_balance: UserBalance | any = balance.get(user_id);
-    let message, status;
+      const user_balance: UserBalance | any = balance.get(user_id);
+      let message, status;
 
-    console.log("transaction started-------------", transaction);
-    console.log("user balance found-------------", user_balance);
+      console.log("transaction started-------------", transaction);
+      console.log("user balance found-------------", user_balance);
 
-    if (user_balance && type === "deposit") {
-      status = "SUCCESS";
-      user_balance[asset].available += amount;
-      console.log("deosit started-------------", user_balance[asset].available);
-
-      await addTransactionInDB({
-        tx_id,
-        user_id,
-        asset,
-        type,
-        amount,
-      });
-    } else if (user_balance && type === "withdraw") {
-      if (user_balance[asset].available < amount) {
-        message = "You do not have sufficient balance";
-        status = "FAILED";
-      } else {
-        user_balance[asset].available -= amount;
+      if (user_balance && type === "deposit") {
         status = "SUCCESS";
+        user_balance[asset].available += amount;
+        console.log(
+          "deosit started-------------",
+          user_balance[asset].available
+        );
+
         await addTransactionInDB({
           tx_id,
           user_id,
@@ -583,34 +650,62 @@ class Engine {
           type,
           amount,
         });
+      } else if (user_balance && type === "withdraw") {
+        if (user_balance[asset].available < amount) {
+          message = "You do not have sufficient balance";
+          status = "FAILED";
+        } else {
+          user_balance[asset].available -= amount;
+          status = "SUCCESS";
+          await addTransactionInDB({
+            tx_id,
+            user_id,
+            asset,
+            type,
+            amount,
+          });
+        }
+        console.log(
+          "withdrawal started-------------",
+          user_balance[asset].available
+        );
+      } else {
+        status = "FAILED";
+        message = "Invalid transaction type or user balance does not exist";
       }
-      console.log(
-        "withdrawal started-------------",
-        user_balance[asset].available
-      );
-    } else {
-      status = "FAILED";
-      message = "Invalid transaction type or user balance does not exist";
-    }
-    balance.set(user_id, user_balance);
-    console.log("return===========", {
-      current_balance: user_balance,
-      message,
-      status,
-    });
-
-    const redis = await RedisHandler.createInstance();
-    await redis.sendApiResponse(
-      {
+      balance.set(user_id, user_balance);
+      console.log("return===========", {
         current_balance: user_balance,
         message,
         status,
-      },
-      engine_request_id
-    );
+      });
+
+      const redis = await RedisHandler.createInstance();
+      await redis.sendApiResponse(
+        {
+          current_balance: user_balance,
+          message,
+          status,
+        },
+        engine_request_id
+      );
+    } catch (error: any) {
+      console.error("Engine BALANCE_UPDATE_ERROR Intercepted: ", error.message);
+
+      // Clean error dispatch so the API layer never hangs
+      await redis.sendApiResponse(
+        {
+          eng_status_code: 0,
+          status: "FAILED",
+          message:
+            error.message ||
+            "An unexpected error occurred during balance adjustments.",
+        },
+        engine_request_id
+      );
+    }
   };
 }
-
 // const engine = async (order: {
 //   action: string;
 //   order_data: { order_id: any; price?: any; quantity?: any; side?: any };

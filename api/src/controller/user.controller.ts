@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { generateTransactionId, generateUserId } from "../utils";
-import { UserData } from "../types/types";
+import { EngineResponse, UserData } from "../types/types";
 import bcrypt from "bcrypt";
 import { prisma } from "@exchange/db";
 import RedisHandler from "../redis";
@@ -126,15 +126,18 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
     };
 
     const redis = await RedisHandler.createInstance();
-    const response = await redis.sendAndAwait({ type: "BALANCE", transaction });
+    const engine_response = (await redis.sendAndAwait({
+      type: "BALANCE",
+      transaction,
+    })) as EngineResponse;
 
-    if (!response) {
+    if (!engine_response.data) {
       return res
         .status(404)
         .send(
           generateErrorResponse(
-            "Transaction Failed. Please recheck balance and try again",
-            "FAILED",
+            engine_response.message,
+            engine_response.status,
             0
           )
         );
@@ -144,9 +147,9 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
       .status(200)
       .send(
         generateAPIResponse(
-          response,
-          "User Balance updated successfully",
-          "SUCCESS",
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
           1
         )
       );

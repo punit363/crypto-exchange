@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import RedisHandler from "../redis";
 import { generateOrderId } from "../utils";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
+import { EngineResponse } from "../types/types";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -43,7 +44,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       unused_market_order_amount: number;
     };
 
-    const order_response = (await redis.sendAndAwait({
+    const engine_response = (await redis.sendAndAwait({
       type: "ORDER",
       order: {
         action: "PLACE_ORDER",
@@ -58,15 +59,15 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
           quoteAsset,
         },
       },
-    })) as OrderResponse;
+    })) as EngineResponse;
 
-    if (!order_response) {
+    if (!engine_response.data) {
       return res
         .status(400)
         .send(
           generateErrorResponse(
-            "Failed to place order please try again",
-            "FAILED",
+            engine_response.message,
+            engine_response.status,
             0
           )
         );
@@ -76,9 +77,9 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       .status(200)
       .send(
         generateAPIResponse(
-          order_response,
-          "Order placed successfully",
-          "SUCCESS",
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
           1
         )
       );
@@ -109,7 +110,7 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
     const [baseAsset, quoteAsset] = market.split("_");
 
     const redis = await RedisHandler.createInstance();
-    const orders = (await redis.sendAndAwait({
+    const engine_response = (await redis.sendAndAwait({
       type: "ORDER",
       order: {
         action: "FETCH_OPEN_ORDERS",
@@ -119,30 +120,27 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
           quoteAsset,
         },
       },
-    })) as {
-      order_id: string;
-      side: string;
-      type: string;
-      price: number;
-      quantity: number;
-      filled_quantity: number;
-      status: string;
-      created_at: string;
-    }[];
+    })) as EngineResponse;
 
-    if (orders.length <= 0) {
+    if (!engine_response.data || engine_response.data.length <= 0) {
       return res
         .status(404)
-        .send(generateErrorResponse("Order data not found", "FAILED", 0));
+        .send(
+          generateErrorResponse(
+            engine_response.message,
+            engine_response.status,
+            0
+          )
+        );
     }
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          orders,
-          "Ticker data fetched successfully",
-          "SUCCESS",
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
           1
         )
       );
@@ -170,7 +168,7 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
 
     const redis = await RedisHandler.createInstance();
 
-    const order_response = await redis.sendAndAwait({
+    const engine_response = (await redis.sendAndAwait({
       type: "ORDER",
       order: {
         user_id,
@@ -182,15 +180,15 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
           quoteAsset: quote_asset,
         },
       },
-    });
+    })) as EngineResponse;
 
-    if (!order_response) {
+    if (!engine_response.data) {
       return res
         .status(400)
         .send(
           generateErrorResponse(
-            "Failed to cancel Order. Please try again",
-            "FAILED",
+            engine_response.message,
+            engine_response.status,
             0
           )
         );
@@ -200,9 +198,9 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
       .status(200)
       .send(
         generateAPIResponse(
-          order_response,
-          "Ticker data fetched successfully",
-          "SUCCESS",
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
           1
         )
       );
