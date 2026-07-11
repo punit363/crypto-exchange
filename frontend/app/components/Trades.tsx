@@ -98,7 +98,8 @@ export function Trades({ market }: { market: string }) {
 
                         return (
                             <div 
-                                key={trade.tradeId || index} 
+                                // FIX: Appended index to the tradeId to guarantee uniqueness!
+                                key={`${trade.tradeId}-${index}`} 
                                 className="flex justify-between px-3 py-[3px] text-[11px] tabular-nums hover:bg-slate-800/50 cursor-pointer transition-colors"
                             >
                                 <div className={`w-1/3 text-left ${priceColor}`}>

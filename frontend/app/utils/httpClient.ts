@@ -18,10 +18,14 @@ export async function getUserOrders(
   const response = await fetch(
     `${BASE_URL}/order?userId=${userId}&market=${market}&type=${type}`
   );
-  if (!response.ok) {
+  const data = await response.json()
+  console.log(data,"----------------getOpen")
+
+  if (!response) {
     throw new Error(`Failed to fetch ${type} orders`);
   }
-  return response.json();
+  
+  return data;
 }
 
 export async function getTickers(): Promise<Ticker[]> {

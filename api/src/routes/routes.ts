@@ -1,5 +1,5 @@
 import express from "express";
-import { getOrder, placeOrder,getOpenOrder, cancelOrder } from "../controller/order.controller";
+import { getOrder, placeOrder, cancelOrder } from "../controller/order.controller";
 import { registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchDepth, fetchTickerData } from "../controller/ticker.controller";
@@ -10,7 +10,6 @@ const router = express.Router();
 router.post("/order", placeOrder);
 router.get("/order", getOrder);
 router.delete("/order", cancelOrder);
-router.get("/order/open", getOpenOrder);
 
 router.get("/ticker", fetchTickerData);
 router.get("/depth", fetchDepth);

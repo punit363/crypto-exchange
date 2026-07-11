@@ -282,56 +282,36 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
-    const orders = await OrderRepo.getUserOrders(userId, market, type);
+    const [baseAsset, quoteAsset] = market.split("_");
+
+    const redis = await RedisHandler.createInstance();
+    const orders = await redis.sendAndAwait({
+      type: "ORDER",
+      order: {
+        action: "FETCH_OPEN_ORDERS",
+        user_id:userId,
+        order_data: {
+          baseAsset,
+          quoteAsset,
+        },
+      },
+    })
     console.log("order-----------------");
     console.log("order-----------------", orders);
 
     // Map Prisma output to stringify Decimals and Dates for the frontend
-    const formattedOrders = orders.map((order) => ({
-      order_id: order.order_id,
-      side: order.side,
-      type: order.type,
-      price: order.price.toString(),
-      quantity: order.quantity.toString(),
-      filled_quantity: order.filled_quantity.toString(),
-      status: order.status,
-      created_at: order.created_at.toISOString(),
-    }));
+    // const formattedOrders = orders.map((order) => ({
+    //   order_id: order.order_id,
+    //   side: order.side,
+    //   type: order.type,
+    //   price: order.price.toString(),
+    //   quantity: order.quantity.toString(),
+    //   filled_quantity: order.filled_quantity.toString(),
+    //   status: order.status,
+    //   created_at: order.created_at.toISOString(),
+    // }));
 
-    res.json(formattedOrders);
-  } catch (error) {
-    console.error("Failed to fetch orders:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-const getOpenOrder = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const userId = req.query.userId as string;
-    const market = req.query.market as string;
-    const type = req.query.type as "open" | "history"; // expected: 'open' or 'history'
-
-    if (!userId || !market || !type) {
-      return res.status(400).json({ error: "Missing required parameters" });
-    }
-
-    const orders = await OrderRepo.getUserOrders(userId, market, type);
-    console.log("order-----------------");
-    console.log("order-----------------", orders);
-
-    // Map Prisma output to stringify Decimals and Dates for the frontend
-    const formattedOrders = orders.map((order) => ({
-      order_id: order.order_id,
-      side: order.side,
-      type: order.type,
-      price: order.price.toString(),
-      quantity: order.quantity.toString(),
-      filled_quantity: order.filled_quantity.toString(),
-      status: order.status,
-      created_at: order.created_at.toISOString(),
-    }));
-
-    res.json(formattedOrders);
+    res.json(orders);
   } catch (error) {
     console.error("Failed to fetch orders:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -370,4 +350,4 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { placeOrder, getOrder, getOpenOrder, cancelOrder };
+export { placeOrder, getOrder, cancelOrder };
