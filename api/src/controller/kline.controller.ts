@@ -1,27 +1,41 @@
 import { prisma } from "@exchange/db";
 import { Request, Response } from "express";
+import { generateAPIResponse, generateErrorResponse } from "../helper";
 
 const fetchKline = async (req: Request, res: Response): Promise<any> => {
   try {
-    const symbol = req.query.symbol as string;
+    const market = req.query.market as string;
     const reqInterval = req.query.interval as string;
-
-    // Ensure we handle timestamps in seconds (Unix)
     const startTime = parseInt(req.query.startTime as string);
     const endTime = parseInt(req.query.endTime as string);
-    // Enforce a strict limit
     const limit = Math.min(parseInt(req.query.limit as string) || 500, 1000);
 
-    // 1. Split "BTC_INR" -> base: "BTC", quote: "INR"
-    const [baseAsset, quoteAsset] = symbol.split("_");
+    if (!market || !reqInterval || !startTime || !endTime) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Required data missing in request query.",
+            "FAILED",
+            0
+          )
+        );
+    }
+
+    const [baseAsset, quoteAsset] = market.split("_");
 
     if (!baseAsset || !quoteAsset) {
       return res
         .status(400)
-        .json({ error: "Invalid symbol format. Use BASE_QUOTE." });
+        .send(
+          generateErrorResponse(
+            "Invalid market format. Use BASE_QUOTE.",
+            "FAILED",
+            0
+          )
+        );
     }
 
-    // 2. Map frontend interval to PostgreSQL interval
     let pgInterval = "1 hour";
     switch (reqInterval) {
       case "1m":
@@ -41,7 +55,6 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
         break;
     }
 
-    // 3. The raw aggregation query matching your `candles` table
     const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 date_bin(CAST(${pgInterval} AS interval), created_at, TIMESTAMP '2000-01-01') AS bucket_time,
@@ -61,6 +74,18 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
             LIMIT ${limit};
         `;
 
+    if (result.length <= 0) {
+      return res
+        .status(404)
+        .send(
+          generateErrorResponse(
+            "Kline data does not exist for this timeframe.",
+            "FAILED",
+            0
+          )
+        );
+    }
+
     const formattedKlines = result
       .map((row) => ({
         end: new Date(row.bucket_time).getTime(),
@@ -70,9 +95,18 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
         close: row.close.toString(),
         volume: row.volume.toString(),
       }))
-      .reverse(); 
+      .reverse();
 
-    res.json(formattedKlines);
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          formattedKlines,
+          "Kline data fetched successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Error fetching klines via Prisma:", error);
     res.status(500).json({ error: "Failed to fetch klines" });

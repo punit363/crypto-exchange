@@ -1,35 +1,48 @@
 import { TickerRepo } from "@exchange/db";
 import { Request, Response } from "express";
 import RedisHandler from "../redis";
+import { generateAPIResponse, generateErrorResponse } from "../helper";
 
 const fetchTickerData = async (req: Request, res: Response): Promise<any> => {
   try {
-    const symbol = req.query.symbol as string;
+    const market = req.query.market as string;
 
-    if (!symbol) {
+    if (!market) {
       return res
         .status(400)
-        .json({ error: "Missing required parameter: symbol" });
+        .send(
+          generateErrorResponse(
+            "Missing required query parameter: market",
+            "FAILED",
+            0
+          )
+        );
     }
 
-    const ticker = await TickerRepo.get24hTicker(symbol);
-    console.log("ticker--------------");
-    console.log("ticker--------------", ticker);
+    const ticker = await TickerRepo.get24hTicker(market);
+
     if (!ticker) {
-      // Return default zeros if market exists but has absolutely no history
-      return res.json({
-        symbol: symbol,
-        firstPrice: "0",
-        lastPrice: "0",
-        high: "0",
-        low: "0",
-        volume: "0",
-        priceChange: "0",
-        priceChangePercent: "0",
-      });
+      return res
+        .status(404)
+        .send(
+          generateErrorResponse(
+            "Ticker data not found for this market",
+            "FAILED",
+            0
+          )
+        );
     }
 
-    res.json(ticker);
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          ticker,
+          "Ticker data fetched successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Failed to fetch ticker:", error);
     res.status(500).json({ error: "Internal Server Error" });

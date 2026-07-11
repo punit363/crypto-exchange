@@ -1,14 +1,21 @@
 import { prisma } from "@exchange/db";
 import { Request, Response } from "express";
+import { generateAPIResponse, generateErrorResponse } from "../helper";
 
 const getTrades = async (req: Request, res: Response): Promise<any> => {
   try {
-    // Support both ?market=BTC_INR and ?symbol=BTC_INR
-    // depending on exactly what httpClient.ts sends
-    const market = (req.query.market || req.query.symbol) as string;
+    const market = req.query.market as string;
 
     if (!market) {
-      return res.status(400).json({ error: "Missing market/symbol parameter" });
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Missing query parameter from request",
+            "FAILED",
+            0
+          )
+        );
     }
 
     const [baseAsset, quoteAsset] = market.split("_");
@@ -16,7 +23,13 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
     if (!baseAsset || !quoteAsset) {
       return res
         .status(400)
-        .json({ error: "Invalid market format. Use BASE_QUOTE." });
+        .send(
+          generateErrorResponse(
+            "Invalid market format. Use BASE_QUOTE.",
+            "FAILED",
+            0
+          )
+        );
     }
 
     // 1. Fetch the 50 most recent trades for this specific market
@@ -26,25 +39,41 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
         quote_asset: quoteAsset,
       },
       orderBy: {
-        created_at: "desc", // Newest trades first
+        created_at: "desc",
       },
       take: 50,
     });
 
-    // 2. Map the Prisma models to the exact shape the React frontend expects
+    if (recentTrades.length <= 0) {
+      return res
+        .status(404)
+        .send(
+          generateErrorResponse(
+            "Recent Trades does not exist for this market",
+            "FAILED",
+            0
+          )
+        );
+    }
+
     const formattedTrades = recentTrades.map((trade) => ({
       tradeId: trade.trade_id,
-      price: trade.price.toString(), // Convert Decimal to string
-      quantity: trade.quantity.toString(), // Convert Decimal to string
-      timestamp: trade.created_at.getTime(), // Convert DateTime to Unix ms timestamp
-
-      // If the aggressor (user_id) placed a "sell", the resting order (maker) was a "buy".
-      // isBuyerMaker = true results in a RED trade on the UI.
-      // isBuyerMaker = false results in a GREEN trade on the UI.
+      price: trade.price.toString(),
+      quantity: trade.quantity.toString(),
+      timestamp: trade.created_at.getTime(),
       isBuyerMaker: trade.side.toLowerCase() === "sell",
     }));
 
-    res.json(formattedTrades);
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          formattedTrades,
+          "Trade data fetched successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Failed to fetch recent trades:", error);
     res.status(500).json({ error: "Internal Server Error" });

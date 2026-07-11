@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import RedisHandler from "../redis";
 import { generateOrderId } from "../utils";
-import { OrderRepo } from "@exchange/db";
+import { generateAPIResponse, generateErrorResponse } from "../helper";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -17,74 +17,16 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       !baseAsset ||
       !quoteAsset
     ) {
-      return res.status(400).send({ error: "Missing required fields" });
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Required fields are missing from the request",
+            "FAILED",
+            0
+          )
+        );
     }
-
-    // const user = await prisma.user.findFirst({
-    //   where: {
-    //     user_id,
-    //   },
-    // });
-
-    // if (!user) {
-    //   return res.status(404).send({
-    //     message: "User not found for the corresponding user_id",
-    //   });
-    // }
-
-    // if (side === "buy" && type === "limit") {
-    //   const totalCost = new Prisma.Decimal(price).mul(quantity);
-
-    //   if (user.balance.lessThan(totalCost)) {
-    //     return res
-    //       .status(400)
-    //       .send({ error: "Insufficient balance for this order" });
-    //   }
-
-    //   await prisma.user.update({
-    //     where: {
-    //       user_id,
-    //     },
-    //     data: {
-    //       balance: { decrement: new Prisma.Decimal(price).mul(quantity) },
-    //       balance_lock: { increment: new Prisma.Decimal(price).mul(quantity) },
-    //     },
-    //   });
-    // }
-
-    // if (side === "sell" && type === "limit") {
-    //   const holdings = await prisma.holding.findFirst({
-    //     where: {
-    //       user_id,
-    //       asset_symbol: asset,
-    //     },
-    //   });
-
-    //   if (!holdings) {
-    //     return res.status(404).send({
-    //       message: "You do not have any holdings for the specified asset",
-    //     });
-    //   }
-
-    //   if (holdings.asset_balance.lessThan(quantity)) {
-    //     return res
-    //       .status(400)
-    //       .send({ error: "Insufficient asset balance for the ask order" });
-    //   }
-
-    //   await prisma.holding.update({
-    //     where: {
-    //       user_id_asset_symbol: {
-    //         user_id,
-    //         asset_symbol: asset,
-    //       },
-    //     },
-    //     data: {
-    //       asset_balance: { decrement: quantity },
-    //       asset_balance_lock: { increment: quantity },
-    //     },
-    //   });
-    // }
 
     const order_id = generateOrderId();
     const redis = await RedisHandler.createInstance();
@@ -118,154 +60,28 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       },
     })) as OrderResponse;
 
-    // if (order_response.fills.length > 0 && type === "limit") {
-    //   //success order completed
-    //   console.log(
-    //     "limit order placed successfully with fills:",
-    //     order_response.fills
-    //   );
-    //   //TODO: update the user balance and holdings based on the fills for the other user with whom the trade was executed
-    //   if (side === "buy") {
-    //     //decrement the balance_lock by the total cost of the fills
-    //     console.log("--------------BUY ORDER---------------");
-    //     await prisma.$transaction(async (tx) => {
-    //       await tx.user.update({
-    //         where: {
-    //           user_id,
-    //         },
-    //         data: {
-    //           balance_lock: {
-    //             decrement: order_response.fills.reduce(
-    //               (acc, fill) =>
-    //                 acc.add(new Prisma.Decimal(fill.price).mul(fill.quantity)),
-    //               new Prisma.Decimal(0) // ← initial value else it will start acc as a fill object
-    //             ),
-    //           },
-    //         },
-    //       });
+    if (!order_response) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Failed to place order please try again",
+            "FAILED",
+            0
+          )
+        );
+    }
 
-    //       await tx.holding.upsert({
-    //         where: {
-    //           user_id_asset_symbol: {
-    //             user_id,
-    //             asset_symbol: asset,
-    //           },
-    //         },
-    //         update: {
-    //           asset_balance: {
-    //             increment: order_response.fills.reduce(
-    //               (acc, fill) => acc.add(fill.quantity),
-    //               new Prisma.Decimal(0)
-    //             ),
-    //           },
-    //         },
-    //         create: {
-    //           user_id,
-    //           asset_symbol: asset,
-    //           asset_balance: order_response.fills.reduce(
-    //             (acc, fill) => acc.add(fill.quantity),
-    //             new Prisma.Decimal(0)
-    //           ),
-    //         },
-    //       });
-
-    //       for (const [idx, fill] of order_response.fills.entries()) {
-    //         await tx.holding.update({
-    //           where: {
-    //             user_id_asset_symbol: {
-    //               user_id: fill.otherUserId,
-    //               asset_symbol: asset,
-    //             },
-    //           },
-    //           data: {
-    //             asset_balance_lock: {
-    //               decrement: fill.quantity,
-    //             },
-    //           },
-    //         });
-
-    //         await tx.user.update({
-    //           where: {
-    //             user_id: fill.otherUserId,
-    //           },
-    //           data: {
-    //             balance: {
-    //               increment: new Prisma.Decimal(fill.price).mul(fill.quantity),
-    //             },
-    //           },
-    //         });
-    //       }
-    //     });
-    //   } else if (side === "sell") {
-    //     //decrement the asset_balance_lock by the total quantity of the fills
-    //     console.log("--------------SELL ORDER---------------");
-    //     await prisma.$transaction(async (tx) => {
-    //       await tx.holding.update({
-    //         where: {
-    //           user_id_asset_symbol: {
-    //             user_id,
-    //             asset_symbol: asset,
-    //           },
-    //         },
-    //         data: {
-    //           asset_balance_lock: {
-    //             decrement: order_response.fills.reduce(
-    //               (acc, fill) => acc.add(fill.quantity),
-    //               new Prisma.Decimal(0)
-    //             ),
-    //           },
-    //         },
-    //       });
-
-    //       await tx.user.update({
-    //         where: {
-    //           user_id,
-    //         },
-    //         data: {
-    //           balance: {
-    //             increment: order_response.fills.reduce(
-    //               (acc, fill) =>
-    //                 acc.add(new Prisma.Decimal(fill.price).mul(fill.quantity)),
-    //               new Prisma.Decimal(0) // ← initial value else it will start acc as a fill object
-    //             ),
-    //           },
-    //         },
-    //       });
-
-    //       for (const [idx, fill] of order_response.fills.entries()) {
-    //         await tx.user.update({
-    //           where: {
-    //             user_id: fill.otherUserId,
-    //           },
-    //           data: {
-    //             balance_lock: {
-    //               decrement: new Prisma.Decimal(fill.price).mul(fill.quantity),
-    //             },
-    //           },
-    //         });
-
-    //         await tx.holding.update({
-    //           where: {
-    //             user_id_asset_symbol: {
-    //               user_id: fill.otherUserId,
-    //               asset_symbol: asset,
-    //             },
-    //           },
-    //           data: {
-    //             asset_balance: {
-    //               increment: new Prisma.Decimal(fill.quantity),
-    //             },
-    //           },
-    //         });
-    //       }
-    //     });
-    //   }
-    // } else if (order_response.fills.length === 0 && type === "limit") {
-    //   //no fills, order is placed in the order book
-    //   //do nothing, the balance and holdings are already locked
-    // }
-
-    return res.send({ data: order_response });
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          order_response,
+          "Order placed successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Error in order/placeOrder:", error);
     return res.status(500).send({ error: "Internal Server Error" });
@@ -279,42 +95,60 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
     const type = req.query.type as "open" | "history";
 
     if (!userId || !market || !type) {
-      return res.status(400).json({ error: "Missing required parameters" });
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Required parameters are missing from request",
+            "FAILED",
+            0
+          )
+        );
     }
 
     const [baseAsset, quoteAsset] = market.split("_");
 
     const redis = await RedisHandler.createInstance();
-    const orders = await redis.sendAndAwait({
+    const orders = (await redis.sendAndAwait({
       type: "ORDER",
       order: {
         action: "FETCH_OPEN_ORDERS",
-        user_id:userId,
+        user_id: userId,
         order_data: {
           baseAsset,
           quoteAsset,
         },
       },
-    })
-    console.log("order-----------------");
-    console.log("order-----------------", orders);
+    })) as {
+      order_id: string;
+      side: string;
+      type: string;
+      price: number;
+      quantity: number;
+      filled_quantity: number;
+      status: string;
+      created_at: string;
+    }[];
 
-    // Map Prisma output to stringify Decimals and Dates for the frontend
-    // const formattedOrders = orders.map((order) => ({
-    //   order_id: order.order_id,
-    //   side: order.side,
-    //   type: order.type,
-    //   price: order.price.toString(),
-    //   quantity: order.quantity.toString(),
-    //   filled_quantity: order.filled_quantity.toString(),
-    //   status: order.status,
-    //   created_at: order.created_at.toISOString(),
-    // }));
+    if (orders.length <= 0) {
+      return res
+        .status(404)
+        .send(generateErrorResponse("Order data not found", "FAILED", 0));
+    }
 
-    res.json(orders);
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          orders,
+          "Ticker data fetched successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Failed to fetch orders:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -323,7 +157,15 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
     const { order_id, user_id, side, base_asset, quote_asset } = req.body;
 
     if (!order_id) {
-      return res.status(400).send({ error: "Missing required fields" });
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Required request parameters are missing from request",
+            "FAILED",
+            0
+          )
+        );
     }
 
     const redis = await RedisHandler.createInstance();
@@ -342,8 +184,28 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    console.log(order_response, "Order response");
-    return res.send({ data: order_response });
+    if (!order_response) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Failed to cancel Order. Please try again",
+            "FAILED",
+            0
+          )
+        );
+    }
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          order_response,
+          "Ticker data fetched successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Error in order/cancelOrder:", error);
     return res.status(500).send({ error: "Internal Server Error" });
