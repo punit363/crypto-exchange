@@ -1,26 +1,31 @@
 import express from "express";
-import { getOrder, placeOrder, cancelOrder } from "../controller/order.controller";
+import {
+  getOrder,
+  placeOrder,
+  cancelOrder,
+} from "../controller/order.controller";
 import { registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchDepth, fetchTickerData } from "../controller/ticker.controller";
 import { getTrades } from "../controller/trade.controller";
 import { loginUser } from "../controller/auth.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
-router.post("/auth/login",loginUser)
+router.post("/auth/login", loginUser);
 
-router.post("/order", placeOrder);
-router.get("/order", getOrder);
-router.delete("/order", cancelOrder);
+router.post("/order", authMiddleware, placeOrder);
+router.get("/order", authMiddleware, getOrder);
+router.delete("/order", authMiddleware, cancelOrder);
 
-router.get("/ticker", fetchTickerData);
-router.get("/depth", fetchDepth);
-router.get("/kline", fetchKline);
+router.get("/ticker", authMiddleware, fetchTickerData);
+router.get("/depth", authMiddleware, fetchDepth);
+router.get("/kline", authMiddleware, fetchKline);
 
 router.post("/user", registerUser);
-router.post("/balance", updateBalance);
+router.post("/balance", authMiddleware, updateBalance);
 
-router.get("/trades", getTrades);
+router.get("/trades", authMiddleware, getTrades);
 
 export default router;

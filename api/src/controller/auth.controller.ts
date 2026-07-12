@@ -1,11 +1,11 @@
-import { prisma, UserRepo } from "@exchange/db";
+import { UserRepo } from "@exchange/db";
 import { Request, Response } from "express";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import bcrypt from "bcryptjs";
+import { generateAccessToken, generateRefreshToken } from "../utils/auth.utils";
 
 const loginUser = async (req: Request, res: Response): Promise<any> => {
   try {
-    console.log("---------------");
     const { user_id, email, password } = req.body;
     console.log(user_id, email, password, "---------------");
     if (!(user_id || email) || !password) {
@@ -43,6 +43,13 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
         .send(generateErrorResponse("Incorrect Password", "FAILED", 0));
     }
 
+
+
+    const access_token = generateAccessToken(user.user_id);
+    const refresh_token = generateRefreshToken(user.user_id);
+
+    await UserRepo.updateRefreshToken(user.user_id, refresh_token);
+
     return res.status(200).send(
       generateAPIResponse(
         {
@@ -52,6 +59,8 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
           first_name: user.first_name,
           last_name: user.last_name,
           age: user.age,
+          access_token,
+          refresh_token,
         },
         "User LoggedIn successfully",
         "SUCCESS",
@@ -59,8 +68,8 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       )
     );
   } catch (error) {
-    console.error("Error fetching klines via Prisma:", error);
-    res.status(500).json({ error: "Failed to fetch klines" });
+    console.error("Error with User Login:", error);
+    res.status(500).json({ error: "Failed to Login" });
   }
 };
 

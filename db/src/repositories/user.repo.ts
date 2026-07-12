@@ -10,7 +10,20 @@ export const UserRepo = {
     return prisma.user.findUnique({ where: { email } });
   },
 
-  create: async (data:User) => {
+  create: async (data: User) => {
     return prisma.user.create({ data });
+  },
+
+  updateRefreshToken: async (user_id: string, refresh_token: string) => {
+    return prisma.user.update({
+      where: { user_id },
+      data: { refresh_token },
+    });
+  },
+
+  fetchRefreshToken: async (refresh_token: string) => {
+    return prisma.user.findFirst({
+      where: { refresh_token },
+    });
   },
 };

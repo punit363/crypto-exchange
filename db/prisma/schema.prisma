@@ -14,6 +14,7 @@ model User {
   email               String        @unique
   phone               String        @unique
   password            String
+  refresh_token       String?        
   created_at          DateTime      @default(now())
   updated_at          DateTime      @updatedAt
   orders              Order[]
