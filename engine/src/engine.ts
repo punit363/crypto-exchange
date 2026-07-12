@@ -44,28 +44,6 @@ const balance_arr: [string, UserBalance][] = [
 
 let balance = new Map<string, UserBalance>(balance_arr);
 
-const checkUserBalance = (
-  user_id: string,
-  baseAsset: string,
-  quoteAsset: string
-) => {
-  const user_balance = balance.get(user_id);
-  if (!user_balance) {
-    balance.set(user_id, {
-      [quoteAsset]: {
-        available: 0,
-        locked: 0,
-      },
-      [baseAsset]: {
-        available: 0,
-        locked: 0,
-      },
-    });
-    return { message: "balance does not exist" };
-  }
-  return user_balance;
-};
-
 const checkAndLockBalance = (
   user_id: any,
   quantity: number,
@@ -365,6 +343,7 @@ class Engine {
 
           const { price, quantity, side, type, baseAsset, quoteAsset } =
             order.order_data;
+
           console.log("step------------=========", order.order_data);
           checkAndLockBalance(
             order.user_id,
@@ -509,44 +488,58 @@ class Engine {
           console.log("====================", order.order_data);
 
           if (!orderbook) {
-            throw new Error("No orderbook found");
+            throw new Error(`No orderbook found for base asset: ${baseAsset}`);
           }
 
-          const response = orderbook.cancelOrder(user_id, order_id, side);
+          const odb_response = orderbook.cancelOrder(user_id, order_id, side);
 
           //update balance
-          if (response.data) {
-            response.data.status = "cancelled";
+          if (odb_response.data) {
+            odb_response.data.status = "cancelled";
+
             settleBalanceAfterTradeCancellation(
               user_id,
-              response.data.quantity,
-              response.data.filled,
-              response.data.price,
-              response.data.side,
+              odb_response.data.quantity,
+              odb_response.data.filled,
+              odb_response.data.price,
+              odb_response.data.side,
               quoteAsset,
               baseAsset
             );
+
             const cancel_order = {
               order_id,
-              status: response.data.status,
+              status: odb_response.data.status,
             };
+
             console.log("cancel data", cancel_order);
             await redis.sendToDB({
               action: "CANCEL_ORDER",
               cancel_order,
             });
+
             orderbook.publishSnapshot();
+            await redis.sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                message: "Order was cancelled successfully",
+                data: odb_response.data,
+              },
+              engine_request_id
+            );
+          } else {
+            await redis.sendApiResponse(
+              {
+                eng_status_code: odb_response.odb_status_code,
+                status: odb_response.status,
+                message: odb_response.message,
+                data: odb_response.data,
+              },
+              engine_request_id
+            );
           }
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              message: "Order was cancelled successfully",
-              data: response,
-            },
-            engine_request_id
-          );
-          console.log("====================", response);
+          console.log("====================", odb_response);
         } catch (error: any) {
           console.error(
             "Engine CANCEL_ORDER_ERROR Intercepted: ",

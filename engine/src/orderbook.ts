@@ -383,54 +383,55 @@ class Orderbook {
   };
 
   cancelOrder = (user_id: string, order_id: string, side: string) => {
-    let cancelled_order;
+    const normalizedSide = side.toLowerCase();
 
-    if (side === "sell") {
-      const idx = this.asks.findIndex(
-        (o) => o.orderId === order_id && o.userID === user_id
-      );
+    const bookList = normalizedSide === "sell" ? this.asks : this.bids;
+    const depthMap =
+      normalizedSide === "sell"
+        ? this.bookWithQuantity.asks
+        : this.bookWithQuantity.bids;
 
-      if (idx !== -1) {
-        cancelled_order = this.asks[idx];
-        this.bookWithQuantity.asks[cancelled_order.price] -=
-          cancelled_order.quantity - cancelled_order.filled;
-        if (this.bookWithQuantity.asks[cancelled_order.price] <= 0) {
-          delete this.bookWithQuantity.asks[cancelled_order.price];
-        }
-        this.asks.splice(idx, 1);
-      }
-    } else if (side === "buy") {
-      const idx = this.bids.findIndex(
-        (o) => o.orderId === order_id && o.userID === user_id
-      );
+    const idx = bookList.findIndex(
+      (o) => o.orderId === order_id && o.userID === user_id
+    );
 
-      if (idx !== -1) {
-        cancelled_order = this.bids[idx];
-        this.bookWithQuantity.bids[cancelled_order.price] -=
-          cancelled_order.quantity - cancelled_order.filled;
-        if (this.bookWithQuantity.bids[cancelled_order.price] <= 0) {
-          delete this.bookWithQuantity.bids[cancelled_order.price];
-        }
-        this.bids.splice(idx, 1);
-      }
-    }
-
-    let response;
-    if (!cancelled_order) {
-      response = {
-        data: cancelled_order,
+    if (idx === -1) {
+      return {
+        data: null,
+        odb_status_code: 0,
         status: "FAILED",
-        message: "Order not found",
-      };
-    } else {
-      response = {
-        data: cancelled_order,
-        status: "SUCCESS",
-        message: "Order cancelled successfully",
+        message: "Order not found in active order books",
       };
     }
 
-    return response;
+    const orderToCancel = bookList[idx];
+
+    if (orderToCancel.filled === orderToCancel.quantity) {
+      return {
+        data: null,
+        odb_status_code: 0,
+        status: "FAILED",
+        message: "Cancellation rejected. Order is already completely filled.",
+      };
+    }
+
+    const remainingQty = orderToCancel.quantity - orderToCancel.filled;
+    if (depthMap[orderToCancel.price] !== undefined) {
+      depthMap[orderToCancel.price] -= remainingQty;
+
+      if (depthMap[orderToCancel.price] <= 0) {
+        delete depthMap[orderToCancel.price];
+      }
+    }
+
+    bookList.splice(idx, 1);
+
+    return {
+      data: orderToCancel,
+      odb_status_code: 1,
+      status: "SUCCESS",
+      message: "Order cancelled successfully",
+    };
   };
 }
 
