@@ -43,8 +43,6 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
         .send(generateErrorResponse("Incorrect Password", "FAILED", 0));
     }
 
-
-
     const access_token = generateAccessToken(user.user_id);
     const refresh_token = generateRefreshToken(user.user_id);
 

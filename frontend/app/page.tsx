@@ -1,10 +1,37 @@
-import Image from "next/image";
-import { Markets } from "./components/Markets";
+"use client";
+
+import { useState, useEffect } from "react";
+import { getActiveUser } from "./utils/httpClient";
+import { LoginGate } from "./components/LoginGate";
+import { TradingDashboard } from "./components/TradingDashboard";
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <Markets />
-    </main>
-  );
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setCurrentUser(getActiveUser());
+
+    const handleAuthChange = () => {
+      setCurrentUser(getActiveUser());
+    };
+
+    window.addEventListener("auth_change", handleAuthChange);
+    return () => {
+      window.removeEventListener("auth_change", handleAuthChange);
+    };
+  }, []);
+
+  const syncAuthState = () => {
+    setCurrentUser(getActiveUser());
+  };
+
+  if (!isMounted) return null;
+
+  if (!currentUser) {
+    return <LoginGate onAuthChange={syncAuthState} />;
+  }
+
+  return <TradingDashboard currentUser={currentUser} onLogout={syncAuthState} />;
 }

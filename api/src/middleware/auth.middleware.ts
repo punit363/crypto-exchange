@@ -3,6 +3,12 @@ import { verifyAccessToken, verifyRefreshToken } from "../utils/auth.utils.js";
 import { UserRepo } from "@exchange/db";
 import { JwtPayload } from "jsonwebtoken";
 
+declare module 'express-serve-static-core' {
+    interface Request {
+      user_id?: string;
+    }
+  }
+
 export const authMiddleware = async (
   req: Request,
   res: Response,
@@ -28,9 +34,10 @@ export const authMiddleware = async (
         return;
       }
 
-      req.body.user_id = payload.user_id;
+      req.user_id = payload.user_id;
       next();
     } catch (accessErr: any) {
+        console.log(accessErr.message, "accessErr.message");
       if (accessErr.message !== "Token has expired") {
         res.status(401).json({ message: "Unauthorized: invalid access token" });
         return;
@@ -66,7 +73,7 @@ export const authMiddleware = async (
           return;
         }
 
-        req.body.user_id = refreshPayload.user_id;
+        req.user_id = refreshPayload.user_id;
         next();
       } catch (refreshErr: any) {
         if (refreshErr.message === "Token has expired") {
