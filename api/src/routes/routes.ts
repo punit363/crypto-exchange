@@ -4,8 +4,11 @@ import { registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchDepth, fetchTickerData } from "../controller/ticker.controller";
 import { getTrades } from "../controller/trade.controller";
+import { loginUser } from "../controller/auth.controller";
 
 const router = express.Router();
+
+router.post("/auth/login",loginUser)
 
 router.post("/order", placeOrder);
 router.get("/order", getOrder);
