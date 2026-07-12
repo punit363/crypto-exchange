@@ -355,13 +355,33 @@ class Engine {
           );
           console.log("0---------------------");
           const {
+            status: orderStatus,
+            odb_status_code,
+            message,
+            data,
+          } = orderbook.placeOrder(order.user_id, order.order_data);
+
+          if(!data) {
+            await redis.sendApiResponse(
+              {
+                eng_status_code: odb_status_code,
+                status: orderStatus,
+                message,
+                data: null,
+              },
+              engine_request_id
+            );
+            break;
+          }
+          const {
             order_id,
             fills,
             status,
             filled,
             unsold_market_order_quanity = null,
             unused_market_order_amount = null,
-          } = orderbook.placeOrder(order.user_id, order.order_data);
+          } = data;
+
           console.log("1---------------------");
           settleBalanceAfterTrade(
             fills,
@@ -379,9 +399,9 @@ class Engine {
           };
           await redis.sendApiResponse(
             {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              message: "Open Orders were fetched successfully",
+              eng_status_code: odb_status_code,
+              status: orderStatus,
+              message,
               data: response,
             },
             engine_request_id
