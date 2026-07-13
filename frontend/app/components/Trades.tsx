@@ -24,7 +24,6 @@ export function Trades({ market }: { market: string }) {
     getTrades(market)
       .then((initialTrades: any[]) => {
         if (isMounted && Array.isArray(initialTrades)) {
-          // Map whatever the backend sends into our strict local TradeEvent format
           const formattedTrades = initialTrades.map((t) => ({
             tradeId: t.tradeId || t.id || t.uuid || Math.random().toString(),
             price: t.price / SCALE,

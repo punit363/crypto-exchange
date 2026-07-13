@@ -9,7 +9,7 @@ import { wsClient } from "../utils/wsClient";
 const INTERVALS = ["1m", "5m", "15m", "1h", "1d"];
 const SCALE = 100000000;
 
-export function TradeView({ market }: { market: string }) {
+export function KlineChart({ market }: { market: string }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartManagerRef = useRef<ChartManager | null>(null);
 
