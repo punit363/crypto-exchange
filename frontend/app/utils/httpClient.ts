@@ -4,7 +4,6 @@ import { Depth, KLine, Ticker } from "./types";
 
 const BASE_URL = "http://localhost:8000/api/v1";
 
-/* STREAMING_CHUNK: Implementing native cookie helpers for Edge compatibility... */
 /**
  * Helper to write browser cookies safely on the client side
  */
@@ -24,16 +23,16 @@ function deleteCookie(name: string) {
   }
 }
 
-/* STREAMING_CHUNK: Initializing the custom Axios instance with credentials... */
-// Create custom axios instance
+/* STREAMING_CHUNK: Initializing axios client with strict credential flags... */
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // CRITICAL: Automatically transmits Secure/HTTP-Only cookies to Express backend
+  withCredentials: true, // Transmits cookies to backend natively
 });
 
-// Outgoing Request interceptor: Attach tokens defensively
+// Outgoing Request interceptor: Attach tokens from localStorage defensively
 apiClient.interceptors.request.use(
   (config) => {
+    console.log("[AXIOS REQUEST INTERCEPTOR] Dispatching outgoing request:", config.url);
     if (typeof window !== "undefined") {
       const accessToken = localStorage.getItem("access_token");
       const refreshToken = localStorage.getItem("refresh_token");
@@ -47,13 +46,17 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error("[AXIOS REQUEST ERROR] Interceptor failed:", error);
+    return Promise.reject(error);
+  }
 );
 
-/* STREAMING_CHUNK: Configuring unified responses and error toast intercepts... */
+/* STREAMING_CHUNK: Creating response interceptors with error catch lines... */
 // Response interceptor: Global error parsing + auto-refresh/logout handling
 apiClient.interceptors.response.use(
   (response) => {
+    console.log("[AXIOS RESPONSE INTERCEPTOR] Received response body:", response.data);
     const result = response.data;
     if (result && result.status === 0) {
       toast.error(result.message || "An unexpected error occurred.");
@@ -62,21 +65,18 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
+    console.error("[AXIOS RESPONSE ERROR] Interceptor caught exception:", error);
     if (error.response) {
       const status = error.response.status;
       const message = error.response.data?.message || "";
 
       if (status === 401) {
-        // Clear local storage, wipe cookies, and dispatch standard logout trigger
         localStorage.clear();
         deleteCookie("access_token");
         deleteCookie("refresh_token");
         window.dispatchEvent(new Event("auth_change"));
 
-        if (
-          message.includes("Session expired") ||
-          message.includes("revoked")
-        ) {
+        if (message.includes("Session expired") || message.includes("revoked")) {
           toast.error("Session expired. Please log in again.");
         }
       } else {
@@ -97,20 +97,16 @@ function handleResponse(result: any) {
   return result.data !== undefined ? result.data : result;
 }
 
-/* STREAMING_CHUNK: Upgrading login auth session storage... */
 // Authentication handlers
 export async function login(payload: {
   user_id?: string;
   email?: string;
   password?: string;
 }) {
-  console.log("payload----------", payload);
   const response = await apiClient.post("/auth/login", payload);
   const data = handleResponse(response.data);
-  console.log("data----------", data);
 
   if (typeof window !== "undefined" && data) {
-    // 1. Write tokens to LocalStorage for SPA states
     localStorage.setItem("access_token", data.access_token);
     localStorage.setItem("refresh_token", data.refresh_token);
     localStorage.setItem(
@@ -125,20 +121,15 @@ export async function login(payload: {
       })
     );
 
-    // 2. Synchronize tokens into Browser Cookies for Server-Side Edge Middleware
-    setCookie("access_token", data.access_token, 15 * 60); // 15 Minutes Max-Age
-    setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7); // 7 Days Max-Age
+    setCookie("access_token", data.access_token, 15 * 60);
+    setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
-    // 3. Dispatch global layout listeners
     window.dispatchEvent(new Event("auth_change"));
     toast.success("Logged in successfully!");
   }
   return data;
 }
 
-/**
- * Registers new user using the custom POST /user endpoint payload keys
- */
 export async function registerUser(payload: {
   firstname: string;
   lastname: string;
@@ -153,22 +144,16 @@ export async function registerUser(payload: {
   return data;
 }
 
-/* STREAMING_CHUNK: Configuring secure logout procedures... */
 export async function logout() {
   try {
     await apiClient.post("/auth/logout");
   } catch (error) {
-    console.warn("Backend token invalidation skipped (token might be already expired):", error);
+    console.warn("Backend token invalidation skipped:", error);
   } finally {
     if (typeof window !== "undefined") {
-      // 1. Wipe client caches
       localStorage.clear();
-
-      // 2. Clear server-side Edge cookies
       deleteCookie("access_token");
       deleteCookie("refresh_token");
-
-      // 3. Dispatch global state event and notify user
       window.dispatchEvent(new Event("auth_change"));
       toast.success("Logged out successfully.");
     }
@@ -240,4 +225,29 @@ export async function createOrder(orderPayload: any): Promise<any> {
   const data = handleResponse(response.data);
   toast.success("Order placed successfully!");
   return data;
+}
+
+/* STREAMING_CHUNK: Creating high-performance isolated balance API triggers... */
+/**
+ * Retrieves the live balanced ledger from the engine database
+ */
+export async function getUserBalance(userId: string): Promise<any> {
+  console.log("[API GET BALANCE] Initiating request for User ID:", userId);
+  const response = await apiClient.get(`/balance?userId=${userId}`);
+  return response.data;
+}
+
+/**
+ * Triggers a secure Deposit or Withdrawal adjustment request directly to the Engine
+ */
+export async function updateUserBalance(payload: {
+  user_id: string;
+  amount: number;
+  asset: string;
+  type: "deposit" | "withdraw" | string;
+}): Promise<any> {
+  console.log("[API UPDATE BALANCE] Initiating POST request with payload:", payload);
+  const response = await apiClient.post("/balance", payload);
+  console.log("[API UPDATE BALANCE] Received response:", response.data);
+  return response.data;
 }

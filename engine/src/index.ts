@@ -24,6 +24,11 @@ const main = async () => {
           console.log("balance-----------------",parsed.transaction)
           await engine.processBalanceUpdate(parsed.transaction, engine_request_id);
           break;
+        case "USER":
+          console.log("user-----------------",parsed)
+          console.log("user-----------------",parsed.user)
+          await engine.addUser(parsed.user, engine_request_id);
+          break;
         default:
           console.warn("Unknown action:", parsed.action);
       }

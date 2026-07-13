@@ -25,17 +25,29 @@ type UserData = {
 };
 
 type BalanceUpdate = {
-  tx_id: string;
+  tx_id?: string;
+  asset?: string;
+  type?: string;
+  amount?: number;
+};
+
+type BalanceToEngine = {
+  action: string;
   user_id: string;
-  asset: string;
-  type: string;
-  amount: number;
+  transaction_data?: BalanceUpdate;
+};
+
+type UserAddition = {
+  user_id: string;
+  asset?: string;
+  amount?: number;
 };
 
 type EngineRequest = {
   type: string;
   order?: OrderToEngine;
-  transaction?: BalanceUpdate;
+  transaction?: BalanceToEngine;
+  user?: UserAddition;
 };
 
 type EngineResponse = {
@@ -49,6 +61,7 @@ export {
   OrderToEngine,
   UserData,
   BalanceUpdate,
+  BalanceToEngine,
   EngineRequest,
   EngineResponse,
 };

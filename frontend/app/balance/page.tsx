@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { AuthGuard } from "../components/AuthGuard";
-import { getActiveUser, apiClient } from "../utils/httpClient";
+import { getActiveUser, getUserBalance, updateUserBalance } from "../utils/httpClient";
 import { toast } from "react-hot-toast";
 
 const SCALE = 100_000_000; // 10^8 Satoshi Multiplier
@@ -39,17 +39,18 @@ export default function BalancePage() {
     if (!currentUser) return;
     setIsLoading(true);
     try {
-      // Query the backend for active balance maps
-      const response = await apiClient.get(`/balance?userId=${currentUser.user_id}`);
-      if (response.data && response.data.status === "SUCCESS") {
-        setBalances(response.data.data.current_balance || response.data.data);
+      // Use the newly separated helper from httpClient.ts
+      const response = await getUserBalance(currentUser.user_id);
+      
+      // Match the exact response format: status: "SUCCESS" and flat data structure
+      if (response && response.status === "SUCCESS" && response.data) {
+        setBalances(response.data);
       } else {
-        // Fallback structurally if GET endpoint is not fully registered yet
-        setBalances(response.data?.data || response.data || {});
+        setBalances({});
       }
     } catch (error) {
       console.warn("Could not retrieve live balances from backend, using safe mock profiles:", error);
-      // Fallback seed so developers aren't stuck with blank interfaces
+      // Fallback seed so developers aren't stuck with blank interfaces during local testing
       setBalances({
         INR: { available: 150000 * SCALE, locked: 12000 * SCALE },
         BTC: { available: 1.45 * SCALE, locked: 0.12 * SCALE },
@@ -57,7 +58,7 @@ export default function BalancePage() {
         SOL: { available: 150 * SCALE, locked: 25 * SCALE },
         XRP: { available: 8500 * SCALE, locked: 0 },
         ADA: { available: 12000 * SCALE, locked: 0 },
-        DOGE: { available: 45000 * SCALE, locked: 0 }
+        DOGE: { available: 45000 * SCALE, locked: 0 },
       });
     } finally {
       setIsLoading(false);
@@ -95,29 +96,35 @@ export default function BalancePage() {
         user_id: currentUser.user_id,
         amount: Math.floor(amountVal * SCALE), // Scaled 10^8 Integer
         asset: selectedAsset,
-        type: modalType // "deposit" | "withdraw"
+        type: modalType, // "deposit" | "withdraw"
       };
 
-      const response = await apiClient.post("/balance", payload);
+      const response = await updateUserBalance(payload);
 
-      if (response.data && response.data.status === "SUCCESS") {
-        toast.success(`${modalType === "deposit" ? "Deposit" : "Withdrawal"} of ${amountVal} ${selectedAsset} processed!`);
-        
+      // Verify transaction using backend's defined response keys
+      if (response && response.status === "SUCCESS") {
+        toast.success(
+          `${modalType === "deposit" ? "Deposit" : "Withdrawal"} of ${amountVal} ${selectedAsset} processed!`
+        );
+
         // Immediately update locally cached balance state returned by Engine
-        if (response.data.data?.current_balance) {
-          setBalances(response.data.data.current_balance);
+        if (response.data) {
+          // If the engine returns the updated flat balance dictionary in the data object
+          setBalances(response.data.current_balance || response.data);
         } else {
-          await fetchBalances(); // Refresh state cleanly
+          await fetchBalances(); // Fallback refresh cleanly
         }
-        
+
         // Close modal sheet and clear fields
         setIsModalOpen(false);
         setAmountInput("");
       } else {
-        toast.error(response.data?.message || "Engine rejected transaction.");
+        toast.error(response?.message || "Engine rejected transaction.");
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Transaction pipeline failed.");
+      toast.error(
+        error.response?.data?.message || "Transaction pipeline failed."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -131,7 +138,7 @@ export default function BalancePage() {
       SOL: 14500,
       XRP: 210,
       ADA: 85,
-      DOGE: 35
+      DOGE: 35,
     };
     return (qty / SCALE) * (rates[asset] || 0);
   };
@@ -150,15 +157,32 @@ export default function BalancePage() {
         <header className="w-full bg-[#14151B] border-b border-slate-900 px-6 h-14 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-[#00C278]/10 border border-[#00C278]/20 rounded-lg">
-              <svg className="w-4 h-4 text-[#00C278]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5m-15 0V21" />
+              <svg
+                className="w-4 h-4 text-[#00C278]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5m-15 0V21"
+                />
               </svg>
             </div>
-            <span className="text-sm font-bold tracking-wider uppercase text-white">Assets Dashboard</span>
+            <span className="text-sm font-bold tracking-wider uppercase text-white">
+              Assets Dashboard
+            </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-slate-400">UID: <span className="font-mono text-white">{currentUser?.user_id}</span></span>
+            <span className="text-slate-400">
+              UID:{" "}
+              <span className="font-mono text-white">
+                {currentUser?.user_id}
+              </span>
+            </span>
           </div>
         </header>
 
@@ -167,31 +191,50 @@ export default function BalancePage() {
           {/* Estimated Net Worth */}
           <div className="col-span-2 bg-[#14151B] border border-slate-900 rounded-xl p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-48 h-48 bg-[#00C278]/5 rounded-full blur-3xl pointer-events-none" />
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Estimated Portfolio Value</p>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest">
+              Estimated Portfolio Value
+            </p>
             <h1 className="text-3xl font-extrabold text-white tracking-tight mt-2 tabular-nums">
-              ₹{totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹
+              {totalPortfolioValue.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </h1>
-            <p className="text-[11px] text-slate-400 mt-1">Combined asset values converted live to Indian Rupee index (INR)</p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Combined asset values converted live to Indian Rupee index (INR)
+            </p>
           </div>
 
           {/* Quick Actions Panel */}
           <div className="bg-[#14151B] border border-slate-900 rounded-xl p-6 flex flex-col justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Adjust Wallet Balance</p>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Deposit test funds to test your automated order book strategies, or initiate secure simulated withdrawals.</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest">
+                Adjust Wallet Balance
+              </p>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Deposit test funds to test your automated order book strategies,
+                or initiate secure simulated withdrawals.
+              </p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3.5 mt-4">
               <button
                 type="button"
-                onClick={() => { setModalType("deposit"); setIsModalOpen(true); }}
+                onClick={() => {
+                  setModalType("deposit");
+                  setIsModalOpen(true);
+                }}
                 className="h-11 rounded-lg bg-[#00C278] hover:bg-[#00a868] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200"
               >
                 Deposit
               </button>
               <button
                 type="button"
-                onClick={() => { setModalType("withdraw"); setIsModalOpen(true); }}
+                onClick={() => {
+                  setModalType("withdraw");
+                  setIsModalOpen(true);
+                }}
                 className="h-11 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all duration-200"
               >
                 Withdraw
@@ -204,15 +247,29 @@ export default function BalancePage() {
         <section className="max-w-7xl w-full mx-auto px-6 mt-8">
           <div className="bg-[#14151B] border border-slate-900 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-900 flex justify-between items-center">
-              <span className="text-sm font-bold text-slate-200">Spot Balances</span>
-              <button 
+              <span className="text-sm font-bold text-slate-200">
+                Spot Balances
+              </span>
+              <button
                 type="button"
-                onClick={fetchBalances} 
+                onClick={fetchBalances}
                 className="p-1.5 hover:bg-slate-900 text-slate-400 hover:text-white rounded-lg transition"
                 title="Refresh Balances"
               >
-                <svg className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#00C278]' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.582M12 8V12l3 3" />
+                <svg
+                  className={`w-4 h-4 ${
+                    isLoading ? "animate-spin text-[#00C278]" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.582M12 8V12l3 3"
+                  />
                 </svg>
               </button>
             </div>
@@ -225,35 +282,49 @@ export default function BalancePage() {
                     <th className="px-6 py-4 text-right">Available</th>
                     <th className="px-6 py-4 text-right">Locked In Orders</th>
                     <th className="px-6 py-4 text-right">Total Balance</th>
-                    <th className="px-6 py-4 text-right">Estimated Value (INR)</th>
+                    <th className="px-6 py-4 text-right">
+                      Estimated Value (INR)
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900/60 text-xs">
                   {SUPPORTED_ASSETS.map((asset) => {
-                    const balance = balances[asset] || { available: 0, locked: 0 };
+                    const balance = balances[asset] || {
+                      available: 0,
+                      locked: 0,
+                    };
                     const availableQty = balance.available || 0;
                     const lockedQty = balance.locked || 0;
                     const totalQty = availableQty + lockedQty;
                     const inrValue = getINRValue(asset, totalQty);
 
                     return (
-                      <tr key={asset} className="hover:bg-slate-900/10 transition-colors">
+                      <tr
+                        key={asset}
+                        className="hover:bg-slate-900/10 transition-colors"
+                      >
                         {/* Asset Meta Column */}
                         <td className="px-6 py-4.5 flex items-center gap-3">
                           <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-[11px] text-slate-300">
                             {asset}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-200">{asset}</span>
+                            <span className="font-bold text-slate-200">
+                              {asset}
+                            </span>
                             <span className="text-[10px] text-slate-500">
-                              {asset === "INR" ? "Indian Rupee" : "Cryptocurrency Index Token"}
+                              {asset === "INR"
+                                ? "Indian Rupee"
+                                : "Cryptocurrency Index Token"}
                             </span>
                           </div>
                         </td>
 
                         {/* Available */}
                         <td className="px-6 py-4.5 text-right font-mono tabular-nums text-[#00C278]">
-                          {(availableQty / SCALE).toFixed(asset === "INR" ? 2 : 4)}
+                          {(availableQty / SCALE).toFixed(
+                            asset === "INR" ? 2 : 4
+                          )}
                         </td>
 
                         {/* Locked */}
@@ -268,7 +339,11 @@ export default function BalancePage() {
 
                         {/* INR Value Estimation */}
                         <td className="px-6 py-4.5 text-right font-mono tabular-nums text-slate-300 font-medium">
-                          ₹{inrValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ₹
+                          {inrValue.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                     );
@@ -282,18 +357,28 @@ export default function BalancePage() {
         {/* Dynamic Ledger Handshake Modal Overlay */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-            <div 
+            <div
               className="w-full max-w-md bg-[#14151B] border border-slate-800 rounded-xl p-6 relative shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close Trigger */}
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="absolute top-4 right-4 text-slate-500 hover:text-white transition"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
 
@@ -301,13 +386,19 @@ export default function BalancePage() {
                 {modalType} Test Assets
               </h2>
               <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                Adjust portfolio values by sending an instant ledger adjustment request directly to the high-performance core engine queue.
+                Adjust portfolio values by sending an instant ledger adjustment
+                request directly to the high-performance core engine queue.
               </p>
 
-              <form onSubmit={handleTransactionSubmit} className="flex flex-col gap-4">
+              <form
+                onSubmit={handleTransactionSubmit}
+                className="flex flex-col gap-4"
+              >
                 {/* Asset Selector */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Token</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Select Token
+                  </label>
                   <select
                     value={selectedAsset}
                     onChange={(e) => setSelectedAsset(e.target.value)}
@@ -324,7 +415,9 @@ export default function BalancePage() {
 
                 {/* Amount Input */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amount</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Amount
+                  </label>
                   <div className="relative flex items-center">
                     <input
                       type="number"

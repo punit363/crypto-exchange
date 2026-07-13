@@ -4,7 +4,7 @@ import {
   placeOrder,
   cancelOrder,
 } from "../controller/order.controller";
-import { registerUser, updateBalance } from "../controller/user.controller";
+import { fetchUserBalance, registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchDepth, fetchTickerData } from "../controller/ticker.controller";
 import { getTrades } from "../controller/trade.controller";
@@ -26,6 +26,7 @@ router.get("/kline", authMiddleware, fetchKline);
 
 router.post("/user", registerUser);
 router.post("/balance", authMiddleware, updateBalance);
+router.get("/balance", authMiddleware, fetchUserBalance);
 
 router.get("/trades", authMiddleware, getTrades);
 

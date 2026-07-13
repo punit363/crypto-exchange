@@ -22,11 +22,13 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
         );
     }
 
+    const user_id = generateUserId();
+
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const userdata: UserData = {
-      user_id: generateUserId(),
+      user_id,
       first_name: firstname,
       last_name: lastname,
       age: Number(age),
@@ -34,6 +36,28 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
       phone: phone,
       password: hashedPassword,
     };
+
+    const user = {
+      user_id,
+    };
+
+    const redis = await RedisHandler.createInstance();
+    const engine_response = (await redis.sendAndAwait({
+      type: "USER",
+      user,
+    })) as EngineResponse;
+
+    if (engine_response.eng_status_code === 0) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            engine_response.message,
+            engine_response.status,
+            engine_response.eng_status_code
+          )
+        );
+    }
 
     const newUser = (await prisma.user.create({
       data: userdata,
@@ -71,8 +95,10 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
 
 const updateBalance = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { user_id, amount, asset, type } = req.body;
+    const { amount, asset, type } = req.body;
+    const user_id = req.user_id;
 
+    console.log(amount, asset, type, user_id, "amount, asset, type ,user_id");
     if (!user_id || !amount || !asset || !type) {
       return res
         .status(400)
@@ -118,11 +144,9 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
     }
 
     const transaction = {
-      tx_id: generateTransactionId(),
+      action: "UPDATE_BALANCE",
       user_id,
-      asset,
-      type,
-      amount,
+      transaction_data: { tx_id: generateTransactionId(), asset, type, amount },
     };
 
     const redis = await RedisHandler.createInstance();
@@ -130,7 +154,7 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
       type: "BALANCE",
       transaction,
     })) as EngineResponse;
-
+console.log(engine_response, "engine_response");
     if (!engine_response.data) {
       return res
         .status(404)
@@ -159,4 +183,58 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { registerUser, updateBalance };
+const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user_id;
+
+    if (!user_id) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Missing required fields from request",
+            "FAILED",
+            0
+          )
+        );
+    }
+console.log(user_id, "user_id");
+    const redis = await RedisHandler.createInstance();
+
+    const engine_response = (await redis.sendAndAwait({
+      type: "BALANCE",
+      transaction: {
+        action: "FETCH_BALANCE",
+        user_id,
+      },
+    })) as EngineResponse;
+console.log(engine_response, "engine_response");
+    if (engine_response.eng_status_code === 0) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            engine_response.message,
+            engine_response.status,
+            engine_response.eng_status_code
+          )
+        );
+    }
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
+          1
+        )
+      );
+  } catch (error) {
+    console.error("Error in order/addBalance:", error);
+    return res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+export { registerUser, updateBalance, fetchUserBalance };

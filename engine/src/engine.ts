@@ -359,7 +359,7 @@ class Engine {
             data,
           } = orderbook.placeOrder(order.user_id, order.order_data);
 
-          if(!data) {
+          if (!data) {
             await redis.sendApiResponse(
               {
                 eng_status_code: odb_status_code,
@@ -628,89 +628,208 @@ class Engine {
 
   processBalanceUpdate = async (
     transaction: {
-      tx_id: string;
+      action: string;
       user_id: string;
-      asset: string;
-      type: string;
-      amount: number;
+      transaction_data: {
+        tx_id: string;
+        asset: string;
+        type: string;
+        amount: number;
+      };
+    },
+    engine_request_id: string
+  ) => {
+    switch (transaction.action) {
+      case "UPDATE_BALANCE": {
+        const redis = await RedisHandler.createInstance();
+        try {
+          const { tx_id, asset, type, amount } = transaction.transaction_data;
+          const { user_id } = transaction;
+
+          const user_balance: UserBalance | any = balance.get(user_id);
+
+          if (!user_balance) {
+            throw new Error(`User balance not found for user_id: ${user_id}`);
+          }
+
+          if (!user_balance[asset]) {
+            user_balance[asset] = { available: 0, locked: 0 };
+          }
+
+          console.log("transaction started-------------", transaction);
+          console.log("user balance found-------------", user_balance);
+
+          if (type === "deposit") {
+            user_balance[asset].available += amount;
+            console.log(
+              "deosit started-------------",
+              user_balance[asset].available
+            );
+
+            addTransactionInDB({
+              tx_id,
+              user_id,
+              asset,
+              type,
+              amount,
+            }).catch((err) => {
+              console.error(
+                `Non-Blocking DB Logging Error for tx ${tx_id}:`,
+                err.message
+              );
+            });
+          } else if (type === "withdraw") {
+            if (user_balance[asset].available < amount) {
+              throw new Error("You do not have sufficient balance");
+            }
+
+            user_balance[asset].available -= amount;
+
+            addTransactionInDB({
+              tx_id,
+              user_id,
+              asset,
+              type,
+              amount,
+            }).catch((err) => {
+              console.error(
+                `Non-Blocking DB Logging Error for tx ${tx_id}:`,
+                err.message
+              );
+            });
+
+            console.log(
+              "withdrawal started-------------",
+              user_balance[asset].available
+            );
+          } else {
+            throw new Error(
+              "Invalid transaction type or user balance does not exist"
+            );
+          }
+          balance.set(user_id, user_balance);
+          console.log("return===========", {
+            current_balance: user_balance,
+          });
+
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              data: user_balance,
+              message: "Balance updated successfully",
+            },
+            engine_request_id
+          );
+        } catch (error: any) {
+          console.error(
+            "Engine BALANCE_UPDATE_ERROR Intercepted: ",
+            error.message
+          );
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during balance adjustments.",
+            },
+            engine_request_id
+          );
+        }
+        break;
+      }
+      case "FETCH_BALANCE": {
+        const redis = await RedisHandler.createInstance();
+        try {
+          const { user_id } = transaction;
+
+          const user_balance = balance.get(user_id);
+
+          if (!user_balance) {
+            throw new Error(`User balance not found for user_id: ${user_id}`);
+          }
+
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              data: user_balance,
+              message: "Balance fetched successfully",
+            },
+            engine_request_id
+          );
+        } catch (error: any) {
+          console.error(
+            "Engine FETCH_BALANCE_ERROR Intercepted: ",
+            error.message
+          );
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during balance fetch.",
+            },
+            engine_request_id
+          );
+        }
+        break;
+      }
+    }
+  };
+
+  addUser = async (
+    user: {
+      user_id: string;
+      asset?: string;
+      amount?: number;
     },
     engine_request_id: string
   ) => {
     const redis = await RedisHandler.createInstance();
     try {
-      const { tx_id, user_id, asset, type, amount } = transaction;
+      const user_id = user.user_id;
+      const asset = user.asset || "INR";
+      const amount = user.amount || 0;
+      console.log(`User ${user_id}---------- added successfully.`);
 
-      const user_balance: UserBalance | any = balance.get(user_id);
-      let message, status;
-
-      console.log("transaction started-------------", transaction);
-      console.log("user balance found-------------", user_balance);
-
-      if (user_balance && type === "deposit") {
-        status = "SUCCESS";
-        user_balance[asset].available += amount;
-        console.log(
-          "deosit started-------------",
-          user_balance[asset].available
-        );
-
-        await addTransactionInDB({
-          tx_id,
-          user_id,
-          asset,
-          type,
-          amount,
-        });
-      } else if (user_balance && type === "withdraw") {
-        if (user_balance[asset].available < amount) {
-          message = "You do not have sufficient balance";
-          status = "FAILED";
-        } else {
-          user_balance[asset].available -= amount;
-          status = "SUCCESS";
-          await addTransactionInDB({
-            tx_id,
-            user_id,
-            asset,
-            type,
-            amount,
-          });
-        }
-        console.log(
-          "withdrawal started-------------",
-          user_balance[asset].available
-        );
-      } else {
-        status = "FAILED";
-        message = "Invalid transaction type or user balance does not exist";
+      if (!user_id) {
+        throw new Error("User ID is required to add a user.");
       }
-      balance.set(user_id, user_balance);
-      console.log("return===========", {
-        current_balance: user_balance,
-        message,
-        status,
+
+      const user_balance = balance.get(user_id);
+
+      if (user_balance) {
+        throw new Error(
+          `User ${user_id} already exists in the balance ledger.`
+        );
+      }
+      console.log(`User balance -------- ${user_balance}---------`);
+
+      balance.set(user_id, {
+        [asset]: {
+          available: amount,
+          locked: 0,
+        },
       });
 
-      const redis = await RedisHandler.createInstance();
       await redis.sendApiResponse(
         {
-          current_balance: user_balance,
-          message,
-          status,
+          eng_status_code: 1,
+          status: "SUCCESS",
+          message: "User successfully added to balance ledger",
         },
         engine_request_id
       );
     } catch (error: any) {
-      console.error("Engine BALANCE_UPDATE_ERROR Intercepted: ", error.message);
-
-      // Clean error dispatch so the API layer never hangs
       await redis.sendApiResponse(
         {
           eng_status_code: 0,
           status: "FAILED",
           message:
-            error.message ||
-            "An unexpected error occurred during balance adjustments.",
+            error.message || "An unexpected error occurred during order fetch",
         },
         engine_request_id
       );
