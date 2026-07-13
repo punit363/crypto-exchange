@@ -8,12 +8,13 @@ import { registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchDepth, fetchTickerData } from "../controller/ticker.controller";
 import { getTrades } from "../controller/trade.controller";
-import { loginUser } from "../controller/auth.controller";
+import { loginUser, logoutUser } from "../controller/auth.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
 router.post("/auth/login", loginUser);
+router.post("/auth/logout",authMiddleware, logoutUser);
 
 router.post("/order", authMiddleware, placeOrder);
 router.get("/order", authMiddleware, getOrder);

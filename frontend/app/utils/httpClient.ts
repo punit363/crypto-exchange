@@ -120,11 +120,17 @@ export async function registerUser(payload: {
   return data;
 }
 
-export function logout() {
-  if (typeof window !== "undefined") {
-    localStorage.clear();
-    window.dispatchEvent(new Event("auth_change"));
-    toast.success("Logged out successfully.");
+export async function logout() {
+  try {
+    await apiClient.post("/auth/logout");
+  } catch (error) {
+    console.warn("Backend token invalidation skipped (token might be already expired):", error);
+  } finally {
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      window.dispatchEvent(new Event("auth_change"));
+      toast.success("Logged out successfully.");
+    }
   }
 }
 

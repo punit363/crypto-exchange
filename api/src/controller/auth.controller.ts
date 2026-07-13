@@ -7,7 +7,7 @@ import { generateAccessToken, generateRefreshToken } from "../utils/auth.utils";
 const loginUser = async (req: Request, res: Response): Promise<any> => {
   try {
     const { user_id, email, password } = req.body;
-    console.log(user_id, email, password, "---------------");
+
     if (!(user_id || email) || !password) {
       return res
         .status(400)
@@ -71,4 +71,27 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { loginUser };
+const logoutUser = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user_id;
+
+    if (!user_id) {
+      return res
+        .status(400)
+        .send(generateErrorResponse("User ID is missing.", "FAILED", 0));
+    }
+
+    await UserRepo.updateRefreshToken(user_id, "");
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse({}, "User Logged Out successfully", "SUCCESS", 1)
+      );
+  } catch (error) {
+    console.error("Error with User Logout:", error);
+    res.status(500).json({ error: "Failed to Logout" });
+  }
+};
+
+export { loginUser, logoutUser };

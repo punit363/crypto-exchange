@@ -26,7 +26,7 @@ export const authMiddleware = async (
 
     try {
       const payload = verifyAccessToken(accessToken) as JwtPayload;
-      console.log("Access token payload:", payload);
+
       if (!payload.user_id) {
         res
           .status(401)
@@ -56,7 +56,7 @@ export const authMiddleware = async (
 
       try {
         const refreshPayload = verifyRefreshToken(refreshToken) as JwtPayload;
-        console.log("Refresh token payload:", refreshPayload);
+
         if (!refreshPayload.user_id) {
           res
             .status(401)
@@ -65,7 +65,7 @@ export const authMiddleware = async (
         }
 
         const dbUser = await UserRepo.fetchRefreshToken(refreshToken);
-        console.log("DB user fetched for refresh token:", dbUser);
+
         if (!dbUser || dbUser.refresh_token !== refreshToken) {
           res
             .status(401)
