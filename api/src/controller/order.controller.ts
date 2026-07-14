@@ -6,9 +6,9 @@ import { EngineResponse } from "../types/types";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { user_id, price, quantity, side, type, baseAsset, quoteAsset } =
-      req.body;
+    const { price, quantity, side, type, baseAsset, quoteAsset } = req.body;
 
+    const user_id = req.user_id as string;
     if (
       !user_id ||
       !price ||
@@ -91,11 +91,11 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
 
 const getOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const userId = req.query.userId as string;
+    const user_id = req.user_id as string;
     const market = req.query.market as string;
     const type = req.query.type as "open" | "history";
 
-    if (!userId || !market || !type) {
+    if (!user_id || !market || !type) {
       return res
         .status(400)
         .send(
@@ -114,7 +114,7 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
       type: "ORDER",
       order: {
         action: "FETCH_OPEN_ORDERS",
-        user_id: userId,
+        user_id,
         order_data: {
           baseAsset,
           quoteAsset,
@@ -152,8 +152,9 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
 
 const cancelOrder = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { order_id, user_id, side, base_asset, quote_asset } = req.body;
-
+    const { order_id, side, base_asset, quote_asset } = req.body;
+    const user_id = req.user_id as string;
+    
     if (!order_id) {
       return res
         .status(400)

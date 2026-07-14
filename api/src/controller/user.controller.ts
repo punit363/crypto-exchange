@@ -154,7 +154,7 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
       type: "BALANCE",
       transaction,
     })) as EngineResponse;
-console.log(engine_response, "engine_response");
+    console.log(engine_response, "engine_response");
     if (!engine_response.data) {
       return res
         .status(404)
@@ -198,7 +198,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
           )
         );
     }
-console.log(user_id, "user_id");
+    console.log(user_id, "user_id");
     const redis = await RedisHandler.createInstance();
 
     const engine_response = (await redis.sendAndAwait({
@@ -208,7 +208,7 @@ console.log(user_id, "user_id");
         user_id,
       },
     })) as EngineResponse;
-console.log(engine_response, "engine_response");
+    console.log(engine_response, "engine_response");
     if (engine_response.eng_status_code === 0) {
       return res
         .status(400)
