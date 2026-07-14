@@ -22,7 +22,7 @@ class RedisHandler {
   };
 
   sendApiResponse = async (engine_response: any, engine_request_id: string) => {
-    console.log("resp sent------------",engine_response)
+    console.log("resp sent------------", engine_response);
     await this.publisher.publish(
       engine_request_id,
       JSON.stringify(engine_response)
@@ -35,22 +35,22 @@ class RedisHandler {
   };
 
   sendToDB = async (data: any) => {
-    const order = await this.client.lPush("db_update", JSON.stringify(data));
+    const order = this.client.lPush("db_update", JSON.stringify(data));
     return order;
   };
 
-  publishTrade = async (trade_details: any) => {
+  publishTrade = (trade_details: any) => {
     console.log("publishing trade");
-    await this.publisher.publish("trade", JSON.stringify(trade_details));
+    return this.publisher.publish("trade", JSON.stringify(trade_details));
   };
 
-  publishOrderBookWithQuantity = async (book_details: any) => {
+  publishOrderBookWithQuantity = (book_details: any) => {
     console.log("publishing book");
-    await this.publisher.publish("book", JSON.stringify(book_details));
+    return this.publisher.publish("book", JSON.stringify(book_details));
   };
 
-  setBookWithQuantity = async (payload: any, market: string) => {
-    await this.client.set(`DEPTH:${market}`, JSON.stringify(payload));
+  setBookWithQuantity = (payload: any, market: string) => {
+    return this.client.set(`DEPTH:${market}`, JSON.stringify(payload));
   };
 }
 export default RedisHandler;

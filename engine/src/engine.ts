@@ -96,7 +96,6 @@ const settleBalanceAfterTrade = (
     for (const fill of fills) {
       const userBalance = balance.get(fill.userId);
       const otherUserBalance = balance.get(fill.otherUserId);
-      //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
 
       if (!userBalance || !otherUserBalance) {
         throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
@@ -124,7 +123,6 @@ const settleBalanceAfterTrade = (
     for (const fill of fills) {
       const userBalance = balance.get(fill.userId);
       const otherUserBalance = balance.get(fill.otherUserId);
-      //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
 
       if (!userBalance || !otherUserBalance) {
         throw new Error(`Balance missing for fill: ${JSON.stringify(fill)}`);
@@ -167,7 +165,6 @@ const settleBalanceAfterTradeCancellation = (
   if (!userBalance) {
     throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
   }
-  //TODO: handle this case properly-- incase the balance does not exist how did a trade occur?
   const remainingQty = quantity - filled;
 
   if (side === "sell") {
@@ -269,15 +266,6 @@ const addTransactionInDB = async (transaction: Transaction) => {
   });
 };
 
-type Balance = {
-  id?: string;
-  user_id: string;
-  asset: string;
-  amount: number;
-  type: string;
-  ref_id: string;
-};
-
 class Engine {
   orderbooks: Orderbook[] = [];
 
@@ -353,6 +341,7 @@ class Engine {
             order.order_data;
 
           console.log("step------------=========", order.order_data);
+
           checkAndLockBalance(
             order.user_id,
             quantity,
@@ -361,7 +350,9 @@ class Engine {
             quoteAsset,
             baseAsset
           );
+
           console.log("0---------------------");
+
           const {
             status: orderStatus,
             odb_status_code,
@@ -370,17 +361,26 @@ class Engine {
           } = orderbook.placeOrder(order.user_id, order.order_data);
 
           if (!data) {
-            await redis.sendApiResponse(
-              {
-                eng_status_code: odb_status_code,
-                status: orderStatus,
-                message,
-                data: null,
-              },
-              engine_request_id
-            );
+            // OPTIMIZATION: Non-blocking execution response failure delivery
+            redis
+              .sendApiResponse(
+                {
+                  eng_status_code: odb_status_code,
+                  status: orderStatus,
+                  message,
+                  data: null,
+                },
+                engine_request_id
+              )
+              .catch((err) => {
+                console.error(
+                  `[Error] Failed to send placeOrder error response, engine_request_id: ${engine_request_id}, error:`,
+                  err.message
+                );
+              });
             break;
           }
+
           const {
             order_id,
             fills,
@@ -391,70 +391,111 @@ class Engine {
           } = data;
 
           console.log("1---------------------");
+
           settleBalanceAfterTrade(
             fills,
             order.order_data.side,
             order.order_data.quoteAsset,
             order.order_data.baseAsset
           );
+
           console.log("2---------------------");
           console.log("3---------------------");
+
           const response = {
             order_id,
             fills,
             unsold_market_order_quanity,
             unused_market_order_amount,
           };
-          await redis.sendApiResponse(
-            {
-              eng_status_code: odb_status_code,
-              status: orderStatus,
-              message,
-              data: response,
-            },
-            engine_request_id
-          );
+
+          // OPTIMIZATION: Non-blocking matched order API delivery
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: odb_status_code,
+                status: orderStatus,
+                message,
+                data: response,
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send placeOrder success response, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                err.message
+              );
+            });
+
           console.log("4---------------------");
 
           const trade_publish_data = {
             market: `${baseAsset}_${quoteAsset}`,
             trade: fills,
           };
+
+          // OPTIMIZATION: Non-blocking trade publish to Redis streams
+          redis.publishTrade(trade_publish_data).catch((err) => {
+            console.error(
+              `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+              err.message
+            );
+          });
+
+          console.log("5---------------------");
+
           const book_with_quantity_publish_data = {
             market: `${baseAsset}_${quoteAsset}`,
             book: orderbook.getBookWithQuantity(),
           };
 
-          await redis.publishTrade(trade_publish_data);
-          console.log("5---------------------");
+          /* STREAMING_CHUNK: Dispatching non-blocking orderbook broadcasts... */
+          // OPTIMIZATION: Non-blocking depth update publish
+          redis
+            .publishOrderBookWithQuantity(book_with_quantity_publish_data)
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to publish orderbook update, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                err.message
+              );
+            });
 
-          await redis.publishOrderBookWithQuantity(
-            book_with_quantity_publish_data
-          );
           console.log("6---------------------");
 
+          // OPTIMIZATION: Snapshot publishing should never freeze thread execution
           orderbook.publishSnapshot();
+
           console.log("7---------------------");
 
-          await redis.sendToDB({
-            action: "ADD_ORDER",
-            order: {
-              order_id,
-              user_id: order.user_id,
-              side,
-              type,
-              quantity,
-              filled_quantity: filled,
-              price,
-              status,
-              base_asset: baseAsset,
-              quote_asset: quoteAsset,
-            },
-          });
+          // OPTIMIZATION: Fire-and-forget order creation synchronization to write database queue
+          redis
+            .sendToDB({
+              action: "ADD_ORDER",
+              order: {
+                order_id,
+                user_id: order.user_id,
+                side,
+                type,
+                quantity,
+                filled_quantity: filled,
+                price,
+                status,
+                base_asset: baseAsset,
+                quote_asset: quoteAsset,
+              },
+            })
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to sync ADD_ORDER, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                err.message
+              );
+            });
+
           console.log("8---------------------");
 
           if (fills.length > 0) {
             addCandlesToDB(fills, baseAsset, quoteAsset);
+
             console.log("9---------------------");
 
             const trades = fills.map((fill) => ({
@@ -470,19 +511,38 @@ class Engine {
               side,
             }));
 
-            await redis.sendToDB({
-              action: "ADD_TRADES",
-              trades,
-            });
+            // OPTIMIZATION: Non-blocking trades persistence queue dispatch
+            redis
+              .sendToDB({
+                action: "ADD_TRADES",
+                trades,
+              })
+              .catch((err) => {
+                console.error(
+                  `[Error] Failed to sync ADD_TRADES, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                  err.message
+                );
+              });
+
             const update_order = fills.map((fill) => ({
               order_id: fill.otherOrderId,
               filled: fill.otherOrderFilled,
               status: fill.otherOrderStatus,
             }));
-            await redis.sendToDB({
-              action: "UPDATE_ORDERS",
-              update_order,
-            });
+
+            // OPTIMIZATION: Non-blocking matching records updater
+            redis
+              .sendToDB({
+                action: "UPDATE_ORDERS",
+                update_order,
+              })
+              .catch((err) => {
+                console.error(
+                  `[Error] Failed to sync UPDATE_ORDERS, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                  err.message
+                );
+              });
+
             console.log("10---------------------");
           }
         } catch (error: any) {
@@ -490,17 +550,25 @@ class Engine {
             "Engine ORDER_PROCESSING_ERROR Intercepted: ",
             error.message
           );
+
           // Return standardized API error response cleanly over Redis instead of crashing
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during trade execution.",
-            },
-            engine_request_id
-          );
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during trade execution.",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to dispatch order crash fallback, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         }
         break;
       }
@@ -541,48 +609,78 @@ class Engine {
             };
 
             console.log("cancel data", cancel_order);
-            await redis.sendToDB({
-              action: "CANCEL_ORDER",
-              cancel_order,
-            });
+            redis
+              .sendToDB({
+                action: "CANCEL_ORDER",
+                cancel_order,
+              })
+              .catch((err) => {
+                console.error(
+                  `[CRITICAL] Non-blocking Database Sync failed during Cancel Order, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                  err.message
+                );
+              });
 
             orderbook.publishSnapshot();
-            await redis.sendApiResponse(
-              {
-                eng_status_code: 1,
-                status: "SUCCESS",
-                message: "Order was cancelled successfully",
-                data: odb_response.data,
-              },
-              engine_request_id
-            );
+            redis
+              .sendApiResponse(
+                {
+                  eng_status_code: 1,
+                  status: "SUCCESS",
+                  message: "Order was cancelled successfully",
+                  data: odb_response.data,
+                },
+                engine_request_id
+              )
+              .catch((err) => {
+                console.error(
+                  `[Failed to transmit API gateway success response, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                  err.message
+                );
+              });
           } else {
-            await redis.sendApiResponse(
-              {
-                eng_status_code: odb_response.odb_status_code,
-                status: odb_response.status,
-                message: odb_response.message,
-                data: odb_response.data,
-              },
-              engine_request_id
-            );
+            redis
+              .sendApiResponse(
+                {
+                  eng_status_code: odb_response.odb_status_code,
+                  status: odb_response.status,
+                  message: odb_response.message,
+                  data: odb_response.data,
+                },
+                engine_request_id
+              )
+              .catch((err) => {
+                console.error(
+                  `[Failed to transmit API gateway fail response, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                  err.message
+                );
+              });
           }
           console.log("====================", odb_response);
         } catch (error: any) {
           console.error(
-            "Engine CANCEL_ORDER_ERROR Intercepted: ",
+            `Engine CANCEL_ORDER_ERROR Intercepted, engine_request_id: ${engine_request_id}, error:`,
             error.message
           );
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during order cancellation.",
-            },
-            engine_request_id
-          );
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message +
+                    ` engine_request_id: ${engine_request_id}, error:` ||
+                  `An unexpected error occurred during order cancellation, engine_request_id: ${engine_request_id}, error:`,
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                err.message +
+                  ` engine_request_id: ${engine_request_id}, error:` ||
+                  `Failed to transmit API gateway crash response, engine_request_id: ${engine_request_id}, error:`
+              );
+            });
         }
         break;
       }
@@ -603,33 +701,51 @@ class Engine {
 
           const response = orderbook.fetchOpenOrders();
 
-          const redis = await RedisHandler.createInstance();
+          // FIX: Removed duplicate "const redis = await RedisHandler.createInstance()" declaration to prevent runtime syntax crashes.
 
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              message: "Open Orders were fetched successfully",
-              data: response,
-            },
-            engine_request_id
-          );
+          // OPTIMIZATION: Non-blocking asynchronous transmission of successfully fetched open orders back to API gateway
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                message: "Open Orders were fetched successfully",
+                data: response,
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchOpenOrders success response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
+
           console.log("====================fetch", response);
         } catch (error: any) {
           console.error(
             "Engine FETCH_OPEN_ORDERS_ERROR Intercepted: ",
             error.message
           );
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during order fetch",
-            },
-            engine_request_id
-          );
+
+          // OPTIMIZATION: Non-blocking error response fallback routing
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during order fetch",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchOpenOrders crash response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         }
         break;
       }
@@ -722,30 +838,47 @@ class Engine {
             current_balance: user_balance,
           });
 
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              data: user_balance,
-              message: "Balance updated successfully",
-            },
-            engine_request_id
-          );
+          // OPTIMIZATION: Non-blocking asynchronous transmission of balance update response
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                data: user_balance,
+                message: "Balance updated successfully",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send updateBalance success response, engine_request_id: ${engine_request_id}, user_id: ${user_id}, error:`,
+                err.message
+              );
+            });
         } catch (error: any) {
           console.error(
             "Engine BALANCE_UPDATE_ERROR Intercepted: ",
             error.message
           );
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during balance adjustments.",
-            },
-            engine_request_id
-          );
+
+          // OPTIMIZATION: Non-blocking error response fallback routing
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during balance adjustments.",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send updateBalance crash response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         }
         break;
       }
@@ -760,30 +893,47 @@ class Engine {
             throw new Error(`User balance not found for user_id: ${user_id}`);
           }
 
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              data: user_balance,
-              message: "Balance fetched successfully",
-            },
-            engine_request_id
-          );
+          // OPTIMIZATION: Non-blocking asynchronous transmission of fetched balances
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                data: user_balance,
+                message: "Balance fetched successfully",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchBalance success response, engine_request_id: ${engine_request_id}, user_id: ${user_id}, error:`,
+                err.message
+              );
+            });
         } catch (error: any) {
           console.error(
             "Engine FETCH_BALANCE_ERROR Intercepted: ",
             error.message
           );
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during balance fetch.",
-            },
-            engine_request_id
-          );
+
+          // OPTIMIZATION: Non-blocking error response fallback routing
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during balance fetch.",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchBalance crash response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         }
         break;
       }
@@ -825,24 +975,46 @@ class Engine {
         },
       });
 
-      await redis.sendApiResponse(
-        {
-          eng_status_code: 1,
-          status: "SUCCESS",
-          message: "User successfully added to balance ledger",
-        },
-        engine_request_id
-      );
+      // OPTIMIZATION: Non-blocking asynchronous transmission of successful onboarding message
+      redis
+        .sendApiResponse(
+          {
+            eng_status_code: 1,
+            status: "SUCCESS",
+            message: "User successfully added to balance ledger",
+          },
+          engine_request_id
+        )
+        .catch((err) => {
+          console.error(
+            `[Error] Failed to send addUser success response, engine_request_id: ${engine_request_id}, user_id: ${user_id}, error:`,
+            err.message
+          );
+        });
     } catch (error: any) {
-      await redis.sendApiResponse(
-        {
-          eng_status_code: 0,
-          status: "FAILED",
-          message:
-            error.message || "An unexpected error occurred during order fetch",
-        },
-        engine_request_id
+      console.error(
+        `Engine ADD_USER_ERROR Intercepted, engine_request_id: ${engine_request_id}, error:`,
+        error.message
       );
+
+      // OPTIMIZATION: Non-blocking error response fallback routing
+      redis
+        .sendApiResponse(
+          {
+            eng_status_code: 0,
+            status: "FAILED",
+            message:
+              error.message ||
+              "An unexpected error occurred during user creation",
+          },
+          engine_request_id
+        )
+        .catch((err) => {
+          console.error(
+            `[Error] Failed to send addUser crash response, engine_request_id: ${engine_request_id}, error:`,
+            err.message
+          );
+        });
     }
   };
 
@@ -869,30 +1041,47 @@ class Engine {
             throw new Error("No market data available");
           }
 
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 1,
-              status: "SUCCESS",
-              data: allMarkets,
-              message: "All market data successfully",
-            },
-            engine_request_id
-          );
+          // OPTIMIZATION: Non-blocking asynchronous transmission of successfully fetched markets
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                data: allMarkets,
+                message: "All market data successfully",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchAllMarkets success response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         } catch (error: any) {
           console.error(
             "Engine FETCH_ALL_MARKETS_ERROR Intercepted: ",
             error.message
           );
-          await redis.sendApiResponse(
-            {
-              eng_status_code: 0,
-              status: "FAILED",
-              message:
-                error.message ||
-                "An unexpected error occurred during market fetch.",
-            },
-            engine_request_id
-          );
+
+          // OPTIMIZATION: Non-blocking error response fallback routing
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during market fetch.",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchAllMarkets crash response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
         }
         break;
       }
