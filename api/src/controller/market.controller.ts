@@ -2,6 +2,7 @@ import { TickerRepo } from "@exchange/db";
 import { Request, Response } from "express";
 import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
+import { EngineResponse } from "../types/types";
 
 const fetchTickerData = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -51,16 +52,16 @@ const fetchTickerData = async (req: Request, res: Response): Promise<any> => {
 
 const fetchDepth = async (req: Request, res: Response): Promise<any> => {
   try {
-    const symbol = (req.query.symbol || req.query.market) as string;
+    const market = (req.query.symbol || req.query.market) as string;
 
-    if (!symbol) {
-      return res.status(400).json({ error: "Missing symbol parameter" });
+    if (!market) {
+      return res.status(400).json({ error: "Missing market parameter" });
     }
 
     const redisHandler = await RedisHandler.createInstance();
 
     // 1. Fetch O(1) snapshot directly from Redis RAM
-    const snapshotString = await redisHandler.get(`DEPTH:${symbol}`);
+    const snapshotString = await redisHandler.get(`DEPTH:${market}`);
 
     if (snapshotString) {
       // 2. Parse and return to the frontend
@@ -75,4 +76,59 @@ const fetchDepth = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { fetchTickerData, fetchDepth };
+const fetchAllMarkets = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user_id;
+
+    if (!user_id) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            "Missing required fields from request",
+            "FAILED",
+            0
+          )
+        );
+    }
+
+    const market = {
+      action: "FETCH_ALL_MARKETS",
+      user_id,
+    };
+
+    const redis = await RedisHandler.createInstance();
+    const engine_response = (await redis.sendAndAwait({
+      type: "MARKET",
+      market,
+    })) as EngineResponse;
+
+    if (engine_response.eng_status_code === 0) {
+      return res
+        .status(404)
+        .send(
+          generateErrorResponse(
+            engine_response.message,
+            engine_response.status,
+            0
+          )
+        );
+    }
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
+          1
+        )
+      );
+  } catch (error) {
+    console.error("Failed to fetch Market Data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export { fetchTickerData, fetchDepth,fetchAllMarkets };

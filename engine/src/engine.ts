@@ -268,6 +268,16 @@ const addTransactionInDB = async (transaction: Transaction) => {
     transaction,
   });
 };
+
+type Balance = {
+  id?: string;
+  user_id: string;
+  asset: string;
+  amount: number;
+  type: string;
+  ref_id: string;
+};
+
 class Engine {
   orderbooks: Orderbook[] = [];
 
@@ -311,7 +321,7 @@ class Engine {
     }, 1000 * 3);
   }
 
-  processOrder = async (
+  processOrderRequest = async (
     order: {
       action: string;
       user_id: string;
@@ -626,7 +636,7 @@ class Engine {
     }
   };
 
-  processBalanceUpdate = async (
+  processBalanceRequest = async (
     transaction: {
       action: string;
       user_id: string;
@@ -780,7 +790,7 @@ class Engine {
     }
   };
 
-  addUser = async (
+  processUserRequest = async (
     user: {
       user_id: string;
       asset?: string;
@@ -833,6 +843,59 @@ class Engine {
         },
         engine_request_id
       );
+    }
+  };
+
+  processMarketRequest = async (
+    market: {
+      user_id: string;
+      action: string;
+    },
+    engine_request_id: string
+  ) => {
+    switch (market.action) {
+      case "FETCH_ALL_MARKETS": {
+        const redis = await RedisHandler.createInstance();
+        try {
+          const allMarkets = this.orderbooks
+            .map((ob) => ({
+              baseAsset: ob.baseAsset,
+              quoteAsset: ob.quoteAsset,
+              currentPrice: ob.currentPrice,
+            }))
+            .sort((a, b) => a.baseAsset.localeCompare(b.baseAsset));
+
+          if (allMarkets.length === 0) {
+            throw new Error("No market data available");
+          }
+
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 1,
+              status: "SUCCESS",
+              data: allMarkets,
+              message: "All market data successfully",
+            },
+            engine_request_id
+          );
+        } catch (error: any) {
+          console.error(
+            "Engine FETCH_ALL_MARKETS_ERROR Intercepted: ",
+            error.message
+          );
+          await redis.sendApiResponse(
+            {
+              eng_status_code: 0,
+              status: "FAILED",
+              message:
+                error.message ||
+                "An unexpected error occurred during market fetch.",
+            },
+            engine_request_id
+          );
+        }
+        break;
+      }
     }
   };
 }

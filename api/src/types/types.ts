@@ -8,7 +8,7 @@ type OrderData = {
   quoteAsset?: string;
 };
 
-type OrderToEngine = {
+type OrderRequestToEngine = {
   action: string;
   user_id: string;
   order_data: OrderData;
@@ -31,23 +31,29 @@ type BalanceUpdate = {
   amount?: number;
 };
 
-type BalanceToEngine = {
+type BalanceRequestToEngine = {
   action: string;
   user_id: string;
   transaction_data?: BalanceUpdate;
 };
 
-type UserAddition = {
+type UserRequestToEngine = {
   user_id: string;
   asset?: string;
   amount?: number;
 };
 
+type MarketRequestToEngine = {
+  action: string;
+  user_id: string;
+};
+
 type EngineRequest = {
   type: string;
-  order?: OrderToEngine;
-  transaction?: BalanceToEngine;
-  user?: UserAddition;
+  order?: OrderRequestToEngine;
+  transaction?: BalanceRequestToEngine;
+  user?: UserRequestToEngine;
+  market?: MarketRequestToEngine;
 };
 
 type EngineResponse = {
@@ -58,10 +64,10 @@ type EngineResponse = {
 };
 
 export {
-  OrderToEngine,
+  OrderRequestToEngine,
   UserData,
   BalanceUpdate,
-  BalanceToEngine,
+  BalanceRequestToEngine,
   EngineRequest,
   EngineResponse,
 };

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getActiveUser } from "./utils/httpClient";
 import { LoginGate } from "./components/LoginGate";
-import { TradingDashboard } from "./components/TradingDashboard";
+import Dashboard from "./components/Dashboard";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -33,5 +33,5 @@ export default function Home() {
     return <LoginGate onAuthChange={syncAuthState} />;
   }
 
-  return <TradingDashboard currentUser={currentUser} onLogout={syncAuthState} />;
+  return <Dashboard />;
 }

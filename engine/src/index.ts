@@ -17,17 +17,22 @@ const main = async () => {
         case "ORDER":
           console.log("order-----------------",parsed)
           console.log("order-----------------",parsed.order)
-          await engine.processOrder(parsed.order, engine_request_id);
+          await engine.processOrderRequest(parsed.order, engine_request_id);
           break;
         case "BALANCE":
           console.log("balance-----------------",parsed)
           console.log("balance-----------------",parsed.transaction)
-          await engine.processBalanceUpdate(parsed.transaction, engine_request_id);
+          await engine.processBalanceRequest(parsed.transaction, engine_request_id);
           break;
         case "USER":
           console.log("user-----------------",parsed)
           console.log("user-----------------",parsed.user)
-          await engine.addUser(parsed.user, engine_request_id);
+          await engine.processUserRequest(parsed.user, engine_request_id);
+          break;
+        case "MARKET":
+          console.log("market-----------------",parsed)
+          console.log("market-----------------",parsed.market)
+          await engine.processMarketRequest(parsed.market, engine_request_id);
           break;
         default:
           console.warn("Unknown action:", parsed.action);

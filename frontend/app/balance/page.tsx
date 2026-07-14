@@ -153,39 +153,7 @@ export default function BalancePage() {
   return (
     <AuthGuard>
       <main className="min-h-screen w-full bg-[#0E1015] text-white flex flex-col font-sans select-none pb-12">
-        {/* Consolidated Platform Header */}
-        <header className="w-full bg-[#14151B] border-b border-slate-900 px-6 h-14 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-[#00C278]/10 border border-[#00C278]/20 rounded-lg">
-              <svg
-                className="w-4 h-4 text-[#00C278]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5m-15 0V21"
-                />
-              </svg>
-            </div>
-            <span className="text-sm font-bold tracking-wider uppercase text-white">
-              Assets Dashboard
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs">
-            <span className="text-slate-400">
-              UID:{" "}
-              <span className="font-mono text-white">
-                {currentUser?.user_id}
-              </span>
-            </span>
-          </div>
-        </header>
-
+      
         {/* Dynamic Card Sheets */}
         <section className="max-w-7xl w-full mx-auto px-6 mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Estimated Net Worth */}
