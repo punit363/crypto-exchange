@@ -49,7 +49,6 @@ interface Balance {
   asset: string;
   amount: number;
   type: string;
-  status: string;
   ref_id: string;
 }
 

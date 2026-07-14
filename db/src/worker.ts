@@ -1,5 +1,6 @@
 import { verifyConnection } from "./client.js";
 import RedisHandler from "./redis.js";
+import { BalanceLedgerRepo } from "./repositories/balance.repo.js";
 import { CandleRepo } from "./repositories/candle.repo.js";
 import { OrderRepo } from "./repositories/order.repo.js";
 import { TradeRepo } from "./repositories/trade.repo.js";
@@ -12,6 +13,7 @@ import {
   Transaction,
   User,
 } from "./types/types.js";
+import { generateBalanceLedgerId } from "./utils/index.js";
 
 const dbMain = async () => {
   await verifyConnection();
@@ -57,10 +59,10 @@ const dbMain = async () => {
         }
         case "CANCEL_ORDER": {
           const cancel_order = db_data.cancel_order;
-          console.log("cancel_order------- data",cancel_order)
+          console.log("cancel_order------- data", cancel_order);
           if (cancel_order) {
-            console.log("cancel_____________order------- data",cancel_order)
-              await OrderRepo.cancelOrder(cancel_order);
+            console.log("cancel_____________order------- data", cancel_order);
+            await OrderRepo.cancelOrder(cancel_order);
           } else {
             throw Error("Order Update Data not Found");
           }
@@ -71,6 +73,80 @@ const dbMain = async () => {
           if (trade_data) {
             for (const trade of trade_data) {
               await TradeRepo.create(trade);
+
+              if (trade.side === "buy") {
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.user_id,
+                  asset: trade.base_asset,
+                  amount: trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.user_id,
+                  asset: trade.quote_asset,
+                  amount: -trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.other_user_id,
+                  asset: trade.base_asset,
+                  amount: -trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.other_user_id,
+                  asset: trade.quote_asset,
+                  amount: trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+              } else if (trade.side === "sell") {
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.user_id,
+                  asset: trade.base_asset,
+                  amount: -trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.user_id,
+                  asset: trade.quote_asset,
+                  amount: trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.other_user_id,
+                  asset: trade.base_asset,
+                  amount: trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+
+                await BalanceLedgerRepo.create({
+                  id: generateBalanceLedgerId(),
+                  user_id: trade.other_user_id,
+                  asset: trade.quote_asset,
+                  amount: -trade.quantity,
+                  type: "trade_fill",
+                  ref_id: trade.trade_id,
+                });
+              }
             }
           } else {
             throw Error("Trade Data not Found");
@@ -100,6 +176,14 @@ const dbMain = async () => {
               transaction_data
             );
             await TransactionRepo.create(transaction_data);
+            await BalanceLedgerRepo.create({
+              id: generateBalanceLedgerId(),
+              user_id: transaction_data.user_id,
+              asset: transaction_data.asset,
+              amount: transaction_data.type === "deposit" ? transaction_data.amount : -transaction_data.amount,
+              type: "transaction",
+              ref_id: transaction_data.tx_id,
+            });
           } else {
             throw Error("Trade Data not Found");
           }
