@@ -9,8 +9,8 @@ if (!REFRESH_TOKEN_SECRET)
 
 const ACCESS_TOKEN_EXPIRES_IN = (process.env.ACCESS_TOKEN_EXPIRES_IN ??
   "1h") as SignOptions["expiresIn"];
-const REFRESH_TOKEN_EXPIRES_IN = (process.env.REFRESH_TOKEN_EXPIRES_IN ??
-  "7d") as SignOptions["expiresIn"];
+  const REFRESH_TOKEN_EXPIRES_IN = (process.env.REFRESH_TOKEN_EXPIRES_IN ??
+    "7d") as SignOptions["expiresIn"];
 
 const generateToken = (
   userId: string,

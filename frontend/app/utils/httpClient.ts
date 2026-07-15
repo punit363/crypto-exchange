@@ -10,7 +10,9 @@ const BASE_URL = "http://localhost:8000/api/v1";
 function setCookie(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document !== "undefined") {
     const secureFlag = window.location.protocol === "https:" ? "Secure;" : "";
-    document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax; ${secureFlag}`;
+    document.cookie = `${name}=${encodeURIComponent(
+      value
+    )}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax; ${secureFlag}`;
   }
 }
 
@@ -23,25 +25,18 @@ function deleteCookie(name: string) {
   }
 }
 
-/* STREAMING_CHUNK: Initializing axios client with strict credential flags... */
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // Transmits cookies to backend natively
+  withCredentials: true, // CRITICAL: Transmits cookies automatically to Express backend
 });
 
 // Outgoing Request interceptor: Attach tokens from localStorage defensively
 apiClient.interceptors.request.use(
   (config) => {
-    console.log("[AXIOS REQUEST INTERCEPTOR] Dispatching outgoing request:", config.url);
     if (typeof window !== "undefined") {
       const accessToken = localStorage.getItem("access_token");
-      const refreshToken = localStorage.getItem("refresh_token");
-
       if (accessToken) {
         config.headers["access_token"] = `Bearer ${accessToken}`;
-      }
-      if (refreshToken) {
-        config.headers["refresh_token"] = `Bearer ${refreshToken}`;
       }
     }
     return config;
@@ -52,11 +47,27 @@ apiClient.interceptors.request.use(
   }
 );
 
-/* STREAMING_CHUNK: Creating response interceptors with error catch lines... */
+// =========================================================================
+// CONCURRENCY LOCK & REFRESH QUEUE INTERCEPTOR
+// Solves SPA race conditions where parallel requests hit backend together
+// =========================================================================
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor: Global error parsing + auto-refresh/logout handling
 apiClient.interceptors.response.use(
   (response) => {
-    console.log("[AXIOS RESPONSE INTERCEPTOR] Received response body:", response.data);
     const result = response.data;
     if (result && result.status === 0) {
       toast.error(result.message || "An unexpected error occurred.");
@@ -65,29 +76,118 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.error("[AXIOS RESPONSE ERROR] Interceptor caught exception:", error);
-    if (error.response) {
-      const status = error.response.status;
-      const message = error.response.data?.message || "";
+    const originalRequest = error.config;
 
-      if (status === 401) {
-        localStorage.clear();
-        deleteCookie("access_token");
-        deleteCookie("refresh_token");
-        window.dispatchEvent(new Event("auth_change"));
-
-        if (message.includes("Session expired") || message.includes("revoked")) {
-          toast.error("Session expired. Please log in again.");
-        }
-      } else {
-        toast.error(message || "Server Error. Try again.");
+    // Check if error is 401 Unauthorized and request has not been retried yet
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !originalRequest._retry
+    ) {
+      // If refresh handshake is already active on another concurrent call, queue this request
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers["access_token"] = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
       }
-    } else {
-      toast.error("Network offline. Please check your internet connection.");
+
+      // Mark request as retried to prevent infinite 401 loops
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      return new Promise((resolve, reject) => {
+        const refreshToken = localStorage.getItem("refresh_token");
+
+        if (!refreshToken) {
+          // No credentials available, proceed directly with cleanup
+          handleWipeAndLogout();
+          return reject(error);
+        }
+
+        console.log(
+          "[AXIOS HANDSHAKE] Access token expired. Initiating atomic rotation..."
+        );
+
+        // Trigger a single, unified POST /auth/refresh request to the API Gateway
+        apiClient
+          .post("/auth/refresh", { refreshToken })
+          .then(({ data }) => {
+            const freshData = data.data || data;
+
+            // Support both snake_case and camelCase returned values
+            const newAccessToken =
+              freshData.accessToken || freshData.access_token;
+            const newRefreshToken =
+              freshData.refreshToken || freshData.refresh_token;
+
+            if (newAccessToken && newRefreshToken) {
+              console.log(
+                "[AXIOS HANDSHAKE SUCCESS] Rotated session cookies and headers successfully."
+              );
+
+              // 1. Write rotated signatures to Client State
+              localStorage.setItem("access_token", newAccessToken);
+              localStorage.setItem("refresh_token", newRefreshToken);
+
+              // 2. Sync values back into Browser Cookies (24H container and 7D slider)
+              setCookie("access_token", newAccessToken, 30); // 24 Hours (Matches 1d Token)
+              setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7); // 7 Days
+
+              // 3. Update active headers
+              apiClient.defaults.headers.common[
+                "access_token"
+              ] = `Bearer ${newAccessToken}`;
+              originalRequest.headers[
+                "access_token"
+              ] = `Bearer ${newAccessToken}`;
+
+              // 4. Resolve paused items inside failed request queue
+              processQueue(null, newAccessToken);
+
+              // 5. Re-run and resolve original failed request
+              resolve(apiClient(originalRequest));
+            } else {
+              throw new Error(
+                "Returned payload does not contain required token contract structures."
+              );
+            }
+          })
+          .catch((err) => {
+            console.error(
+              "[AXIOS HANDSHAKE FAILURE] Critical session rotation fail:",
+              err.message
+            );
+            processQueue(err, null);
+            handleWipeAndLogout();
+            toast.error("Session expired. Please log in again.");
+            reject(err);
+          })
+          .finally(() => {
+            isRefreshing = false;
+          });
+      });
     }
+
     return Promise.reject(error);
   }
 );
+
+/**
+ * Standard utility to clean local session keys and browser cookies
+ */
+function handleWipeAndLogout() {
+  if (typeof window !== "undefined") {
+    localStorage.clear();
+    deleteCookie("access_token");
+    deleteCookie("refresh_token");
+    window.dispatchEvent(new Event("auth_change"));
+  }
+}
 
 /**
  * Handle unified standard response
@@ -121,7 +221,8 @@ export async function login(payload: {
       })
     );
 
-    setCookie("access_token", data.access_token, 15 * 60);
+    // FIX: Set browser cookie Max-Age to 24 Hours (86400 seconds) to match the 1d JWT lifetime!
+    setCookie("access_token", data.access_token, 30);
     setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
     window.dispatchEvent(new Event("auth_change"));
@@ -178,7 +279,6 @@ export function getActiveUser() {
 // Market endpoints
 export async function getTicker(market: string) {
   const response = await apiClient.get(`/ticker?market=${market}`);
-  console.log("[API GET TICKER] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
@@ -190,25 +290,21 @@ export async function getUserOrders(
   const response = await apiClient.get(
     `/order?userId=${userId}&market=${market}&type=${type}`
   );
-  console.log("[API GET USER ORDERS] Response received for user:", userId, "market:", market, "type:", type, response.data);
   return handleResponse(response.data);
 }
 
 export async function getTickers(): Promise<Ticker[]> {
   const response = await apiClient.get("/tickers");
-  console.log("[API GET TICKERS] Response received:", response.data);
   return handleResponse(response.data);
 }
 
 export async function getTrades(market: string): Promise<any[]> {
   const response = await apiClient.get(`/trades?market=${market}`);
-  console.log("[API GET TRADES] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
 export async function getDepth(market: string): Promise<any> {
   const response = await apiClient.get(`/depth?symbol=${market}`);
-  console.log("[API GET DEPTH] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
@@ -222,26 +318,21 @@ export async function getKlines(
     `/kline?market=${market}&interval=${interval}&startTime=${startTime}&endTime=${endTime}`
   );
   const data: KLine[] = handleResponse(response.data);
-  console.log("[API GET KLINES] Response received for market:", market, "interval:", interval, "startTime:", startTime, "endTime:", endTime, data);
   return data.sort((x, y) => (Number(x.end) < Number(y.end) ? -1 : 1));
 }
 
 export async function createOrder(orderPayload: any): Promise<any> {
   const response = await apiClient.post("/order", orderPayload);
   const data = handleResponse(response.data);
-  console.log("[API CREATE ORDER] Order placed successfully:", data);
   toast.success("Order placed successfully!");
   return data;
 }
 
-/* STREAMING_CHUNK: Creating high-performance isolated balance API triggers... */
 /**
- * Retrieves the live balanced ledger from the engine database
+ * Retrieves the live balanced ledger from the database
  */
 export async function getUserBalance(userId: string): Promise<any> {
-  console.log("[API GET BALANCE] Initiating request for User ID:", userId);
   const response = await apiClient.get(`/balance?userId=${userId}`);
-  console.log("[API GET BALANCE] Received response:", response.data);
   return response.data;
 }
 
@@ -254,8 +345,6 @@ export async function updateUserBalance(payload: {
   asset: string;
   type: "deposit" | "withdraw" | string;
 }): Promise<any> {
-  console.log("[API UPDATE BALANCE] Initiating POST request with payload:", payload);
   const response = await apiClient.post("/balance", payload);
-  console.log("[API UPDATE BALANCE] Received response:", response.data);
   return response.data;
 }

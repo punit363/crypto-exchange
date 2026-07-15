@@ -7,7 +7,7 @@ import { EngineResponse } from "../types/types";
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
     const { price, quantity, side, type, baseAsset, quoteAsset } = req.body;
-
+    console.log(req.user_id, "user_id--------------------");
     const user_id = req.user_id as string;
     if (
       !user_id ||
@@ -154,7 +154,7 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
   try {
     const { order_id, side, base_asset, quote_asset } = req.body;
     const user_id = req.user_id as string;
-    
+
     if (!order_id) {
       return res
         .status(400)

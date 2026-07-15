@@ -15,10 +15,9 @@ export const authMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // 1. Defensively retrieve Access Token from Headers OR Cookies
     let accessToken: string | undefined = undefined;
     const accessAuthHeader = req.headers.access_token as string;
-
+    console.log(accessAuthHeader, "accessAuthHeade------------r");
     if (accessAuthHeader && accessAuthHeader.startsWith("Bearer ")) {
       accessToken = accessAuthHeader.split(" ")[1];
     } else if (req.cookies?.access_token) {
@@ -30,78 +29,25 @@ export const authMiddleware = async (
       return;
     }
 
-    try {
-      // 2. Verify Access Token
-      const payload = verifyAccessToken(accessToken) as JwtPayload;
-
-      if (!payload.user_id) {
-        res
-          .status(401)
-          .json({ message: "Unauthorized: invalid token payload" });
-        return;
-      }
-
-      req.user_id = payload.user_id;
-      next();
-    } catch (accessErr: any) {
-      console.log(accessErr.message, "accessErr.message");
-      if (accessErr.message !== "Token has expired") {
-        res.status(401).json({ message: "Unauthorized: invalid access token" });
-        return;
-      }
-
-      // 3. Defensively retrieve Refresh Token from Headers OR Cookies
-      let refreshToken: string | undefined = undefined;
-      const refreshAuthHeader = req.headers.refresh_token as string;
-
-      if (refreshAuthHeader && refreshAuthHeader.startsWith("Bearer ")) {
-        refreshToken = refreshAuthHeader.split(" ")[1];
-      } else if (req.cookies?.refresh_token) {
-        refreshToken = req.cookies.refresh_token;
-      }
-
-      if (!refreshToken) {
-        res
-          .status(401)
-          .json({ message: "Unauthorized: missing refresh token" });
-        return;
-      }
-
-      try {
-        // 4. Verify Refresh Token
-        const refreshPayload = verifyRefreshToken(refreshToken) as JwtPayload;
-
-        if (!refreshPayload.user_id) {
-          res
-            .status(401)
-            .json({ message: "Unauthorized: invalid refresh token payload" });
-          return;
-        }
-
-        const dbUser = await UserRepo.fetchRefreshToken(refreshToken);
-
-        if (!dbUser || dbUser.refresh_token !== refreshToken) {
-          res
-            .status(401)
-            .json({ message: "Unauthorized: refresh token revoked" });
-          return;
-        }
-
-        req.user_id = refreshPayload.user_id;
-        next();
-      } catch (refreshErr: any) {
-        if (refreshErr.message === "Token has expired") {
-          res
-            .status(401)
-            .json({ message: "Session expired: please log in again" });
-          return;
-        }
-        res
-          .status(401)
-          .json({ message: "Unauthorized: invalid refresh token" });
-      }
+    const payload = verifyAccessToken(accessToken) as JwtPayload;
+    console.log(payload, "payload--------------------");
+    if (!payload.user_id) {
+      res.status(401).json({ message: "Unauthorized: invalid token payload" });
+      return;
     }
-  } catch (error) {
-    next(error);
+
+    req.user_id = payload.user_id;
+    next();
+   
+  } catch (refreshErr: any) {
+    if (refreshErr.message === "Token has expired") {
+      res.status(401).json({ message: "Session expired: please log in again" });
+      return;
+    }
+    res.status(401).json({ message: "Unauthorized: invalid refresh token" });
   }
 };
+// } catch (error) {
+// next(error);
+// }
+// };

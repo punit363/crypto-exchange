@@ -34,13 +34,14 @@ export function KlineChart({ market }: { market: string }) {
         return now - 1000 * 60 * 60 * 24 * 7;
     }
   };
+
   useEffect(() => {
     let isMounted = true;
 
     const init = async () => {
       let klineData: KLine[] = [];
 
-      // FIX: Query the backend using 10-digit SECONDS to match backend parsing requirements.
+      // Query the backend using 10-digit SECONDS to match backend parsing requirements.
       const endTime = Math.floor(new Date().getTime() / 1000);
       const startTime = Math.floor(getLookbackWindow(activeInterval) / 1000);
 
@@ -86,15 +87,36 @@ export function KlineChart({ market }: { market: string }) {
           formattedKlines
         );
 
+        /* STREAMING_CHUNK: Instantiating dynamic timescale constraints... */
+        // Configuration options passed directly to ChartManager constructor
+        const chartOptions = {
+          background: "#0e0f14",
+          color: "white",
+          // Pass timescale configuration explicitly if your custom ChartManager maps options directly
+          timeScale: {
+            timeVisible: activeInterval !== "1d", // Show time (HH:MM) for intraday data, hide for daily
+            secondsVisible: false,
+          }
+        };
+
         const chartManager = new ChartManager(
           chartRef.current,
           formattedKlines,
-          {
-            background: "#0e0f14",
-            color: "white",
-          },
+          chartOptions,
           activeInterval
         );
+
+        // DEFENSTIVE WRAPPER: If ChartManager exposes the underlying chart instance,
+        // we apply options explicitly on the fly to force-update the timescale ticks.
+        const rawChart = (chartManager as any).chart || (chartManager as any)._chart;
+        if (rawChart && typeof rawChart.applyOptions === "function") {
+          rawChart.applyOptions({
+            timeScale: {
+              timeVisible: activeInterval !== "1d",
+              secondsVisible: false,
+            }
+          });
+        }
 
         chartManagerRef.current = chartManager;
       }
