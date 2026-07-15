@@ -14,62 +14,81 @@ export function KlineChart({ market }: { market: string }) {
   const chartManagerRef = useRef<ChartManager | null>(null);
 
   // State for chart controls
-  const [activeInterval, setActiveInterval] = useState("1h");
+  const [activeInterval, setActiveInterval] = useState("1m"); // Defaulting to 1m for active visual testing
 
   // Helper to dynamically size the fetch window based on interval
   const getLookbackWindow = (interval: string) => {
     const now = new Date().getTime();
     switch (interval) {
       case "1m":
-        return now - 1000 * 60 * 60 * 24; // 1 day
+        return now - 1000 * 60 * 60 * 24; // 1 day in milliseconds
       case "5m":
-        return now - 1000 * 60 * 60 * 24 * 3; // 3 days
+        return now - 1000 * 60 * 60 * 24 * 3; // 3 days in milliseconds
       case "15m":
-        return now - 1000 * 60 * 60 * 24 * 7; // 7 days
+        return now - 1000 * 60 * 60 * 24 * 7; // 7 days in milliseconds
       case "1h":
-        return now - 1000 * 60 * 60 * 24 * 30; // 30 days
+        return now - 1000 * 60 * 60 * 24 * 30; // 30 days in milliseconds
       case "1d":
-        return now - 1000 * 60 * 60 * 24 * 365; // 1 year
+        return now - 1000 * 60 * 60 * 24 * 365; // 1 year in milliseconds
       default:
         return now - 1000 * 60 * 60 * 24 * 7;
     }
   };
-
   useEffect(() => {
-    let isMounted = true; // 1. Add this circuit breaker
+    let isMounted = true;
 
     const init = async () => {
       let klineData: KLine[] = [];
+
+      // FIX: Query the backend using 10-digit SECONDS to match backend parsing requirements.
       const endTime = Math.floor(new Date().getTime() / 1000);
       const startTime = Math.floor(getLookbackWindow(activeInterval) / 1000);
+
+      console.log(
+        `[KLINE FETCH] Querying ${activeInterval} for ${market}. Start: ${startTime}, End: ${endTime}`
+      );
       try {
         klineData = await getKlines(market, activeInterval, startTime, endTime);
+        console.log(
+          "[KLINE FETCH] Successfully retrieved candles count:",
+          klineData?.length
+        );
       } catch (e) {
         console.error("Failed to fetch klines", e);
       }
 
-      // 2. If the user clicked another button while we were fetching, STOP here!
       if (!isMounted) return;
 
       if (chartRef.current) {
         if (chartManagerRef.current) {
           chartManagerRef.current.destroy();
-          chartManagerRef.current = null; // Clear the ref completely
+          chartManagerRef.current = null;
         }
 
-        const chartManager = new ChartManager(
-          chartRef.current,
-          [
-            ...klineData?.map((x) => ({
+        // Map database candle objects to ChartManager interface defensively
+        const formattedKlines = (klineData || [])
+          .map((x) => {
+            const timestampMs = Number(x.end);
+            return {
               close: parseFloat(x.close) / SCALE,
               high: parseFloat(x.high) / SCALE,
               low: parseFloat(x.low) / SCALE,
               open: parseFloat(x.open) / SCALE,
-              timestamp: new Date(x.end),
-            })),
-          ].sort((x, y) =>
-            x.timestamp.getTime() < y.timestamp.getTime() ? -1 : 1
-          ) || [],
+              timestamp: new Date(timestampMs),
+              // Provide both formats to be robust with standard Lightweight Charts versions
+              time: Math.floor(timestampMs / 1000),
+            };
+          })
+          .sort((x, y) => x.timestamp.getTime() - y.timestamp.getTime());
+
+        console.log(
+          "[KLINE RENDER] Initializing chart with sorted candles:",
+          formattedKlines
+        );
+
+        const chartManager = new ChartManager(
+          chartRef.current,
+          formattedKlines,
           {
             background: "#0e0f14",
             color: "white",
@@ -82,13 +101,27 @@ export function KlineChart({ market }: { market: string }) {
     };
 
     init();
-
     wsClient.connect();
 
-    const handleTradeUpdate = (fills: any[]) => {
-      if (fills && fills.length > 0 && chartManagerRef.current) {
-        const latestPrice = Number(fills[0].price) / SCALE;
-        const tradeTime = fills[0].bucketTime || Date.now();
+    // WS Trade subscriber (Live updates)
+    const handleTradeUpdate = (data: any) => {
+      if (!isMounted || !chartManagerRef.current) return;
+      console.log("[KLINE WS] Received raw trade transaction update:", data);
+
+      // Extract raw fill arrays defensively
+      const fillList = Array.isArray(data)
+        ? data
+        : data.trade || data.data || [];
+
+      if (Array.isArray(fillList) && fillList.length > 0) {
+        const latestPrice = Number(fillList[0].price) / SCALE;
+        const tradeTime = fillList[0].bucketTime || Date.now();
+
+        console.log(
+          `[KLINE LIVE UPDATE] Pushing price level: ${latestPrice} @ time: ${tradeTime}`
+        );
+
+        // Feed the live price update directly into the active charting engine
         chartManagerRef.current.updateLivePrice(latestPrice, tradeTime);
       }
     };
@@ -96,13 +129,11 @@ export function KlineChart({ market }: { market: string }) {
     wsClient.subscribe(market, "TRADE", handleTradeUpdate);
 
     return () => {
-      // 3. When the component unmounts or interval changes, flip the breaker
       isMounted = false;
-
       wsClient.unsubscribe(market, "TRADE", handleTradeUpdate);
       if (chartManagerRef.current) {
         chartManagerRef.current.destroy();
-        chartManagerRef.current = null; // Clear the ref
+        chartManagerRef.current = null;
       }
     };
   }, [market, activeInterval]);
@@ -127,7 +158,6 @@ export function KlineChart({ market }: { market: string }) {
           ))}
         </div>
 
-        {/* Optional: Add chart settings icons or indicators here in the future */}
         <div className="flex items-center text-slate-500 hover:text-white cursor-pointer px-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"

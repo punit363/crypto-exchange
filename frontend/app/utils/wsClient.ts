@@ -52,12 +52,13 @@ class WSManager {
       try {
         const parsed = JSON.parse(event.data);
         const market = parsed.market;
-
+        console.log("++++++++++++++++++++++++Received WS message:", parsed);
+        console.log("++++++++++++++++++++++++Received WS message:", market);
         if (!market) {
           console.warn("WS message missing 'market' field.", parsed);
           return;
         }
-        
+
         // Console log for debugging
         console.log("🟢 WS RECEIVED:", parsed);
 
@@ -66,22 +67,24 @@ class WSManager {
           const channel = `TRADE@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
-        } 
-        
+        }
+
         // 2. Check for 'book' instead of just 'book_with_quantity'
-        else if (parsed.book !== undefined || parsed.book_with_quantity !== undefined) {
+        else if (
+          parsed.book !== undefined ||
+          parsed.book_with_quantity !== undefined
+        ) {
           const channel = `BOOK@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
-        } 
-        
+        }
+
         // 3. Ticker
         else if (parsed.ticker !== undefined) {
           const channel = `TICKER@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
         }
-        
       } catch (err) {
         console.error("Failed to parse WS message", err);
       }

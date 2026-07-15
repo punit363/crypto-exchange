@@ -14,11 +14,11 @@ export function Depth({ market }: { market: string }) {
   useEffect(() => {
     let isMounted = true;
 
+    // 1. Initial REST fetch for state synchronization
     getDepth(market)
       .then((data) => {
         if (!isMounted) return;
         
-        // Since httpClient now unwraps correctly, 'data' is our payload
         if (data.currentPrice) setPrice(data.currentPrice.toString());
 
         if (data.bids) {
@@ -39,23 +39,46 @@ export function Depth({ market }: { market: string }) {
       })
       .catch((err) => console.error("Failed to fetch initial depth", err));
 
+    /* STREAMING_CHUNK: Implementing defensive websocket payload extractors... */
+    // 2. Real-time WebSocket handlers
     const handleBookUpdate = (data: any) => {
       if (!isMounted) return;
-      if (data.bids) {
-        setBids(Object.entries(data.bids).map(([p, s]) => [p, String(s)] as [string, string]).sort((a, b) => Number(b[0]) - Number(a[0])));
+      console.log("[WS BOOK UPDATE] Received dynamic depth update:", data);
+
+      // Extract bids and asks defensively, checking both flat and nested properties
+      const rawBids = data.bids || data.book?.bids || data.data?.bids;
+      const rawAsks = data.asks || data.book?.asks || data.data?.asks;
+
+      if (rawBids) {
+        const sortedBids = Object.entries(rawBids)
+          .map(([p, s]) => [p, String(s)] as [string, string])
+          // CRITICAL: Filter out filled/cancelled orders (where size is 0)
+          .filter(([_, s]) => Number(s) > 0)
+          .sort((a, b) => Number(b[0]) - Number(a[0]));
+        setBids(sortedBids);
       }
-      if (data.asks) {
-        setAsks(Object.entries(data.asks).map(([p, s]) => [p, String(s)] as [string, string]).sort((a, b) => Number(a[0]) - Number(b[0])));
+
+      if (rawAsks) {
+        const sortedAsks = Object.entries(rawAsks)
+          .map(([p, s]) => [p, String(s)] as [string, string])
+          // CRITICAL: Filter out filled/cancelled asks (where size is 0)
+          .filter(([_, s]) => Number(s) > 0)
+          .sort((a, b) => Number(a[0]) - Number(b[0]));
+        setAsks(sortedAsks);
       }
     };
 
     const handleTradeUpdate = (fills: any) => {
       if (!isMounted) return;
-      if (Array.isArray(fills) && fills.length > 0 && fills[0].price) {
-        setPrice(fills[0].price.toString());
+      console.log("[WS TRADE UPDATE] Received matches:", fills);
+      // Handles both array of fills and standard objects
+      const fillList = Array.isArray(fills) ? fills : (fills.trade || fills.data || []);
+      if (Array.isArray(fillList) && fillList.length > 0 && fillList[0].price) {
+        setPrice(fillList[0].price.toString());
       }
     };
 
+    // Subscriptions setup
     wsClient.connect();
     wsClient.subscribe(market, "BOOK", handleBookUpdate);
     wsClient.subscribe(market, "TRADE", handleTradeUpdate);
@@ -106,8 +129,8 @@ export function Depth({ market }: { market: string }) {
         {asksWithTotal.map((ask) => {
           const barWidth = maxTotal > 0 ? (ask.rawTotal / maxTotal) * 100 : 0;
           return (
-            <div key={`ask-${ask.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">
-              <div className="absolute right-0 top-0 h-full bg-[#F94D5C]/10 transition-all duration-300" style={{ width: `${barWidth}%` }} />
+            <div key={`ask-${ask.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in">
+              <div className="absolute right-0 top-0 h-full bg-[#F94D5C]/10 transition-all duration-350" style={{ width: `${barWidth}%` }} />
               <div className="flex-1 text-left text-[#F94D5C] tabular-nums z-10">{ask.price}</div>
               <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{ask.quantity}</div>
               <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{ask.totalFormatted}</div>
@@ -127,8 +150,8 @@ export function Depth({ market }: { market: string }) {
         {bidsWithTotal.map((bid) => {
           const barWidth = maxTotal > 0 ? (bid.rawTotal / maxTotal) * 100 : 0;
           return (
-            <div key={`bid-${bid.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group">
-              <div className="absolute right-0 top-0 h-full bg-[#00C278]/10 transition-all duration-300" style={{ width: `${barWidth}%` }} />
+            <div key={`bid-${bid.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in">
+              <div className="absolute right-0 top-0 h-full bg-[#00C278]/10 transition-all duration-350" style={{ width: `${barWidth}%` }} />
               <div className="flex-1 text-left text-[#00C278] tabular-nums z-10">{bid.price}</div>
               <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{bid.quantity}</div>
               <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{bid.totalFormatted}</div>

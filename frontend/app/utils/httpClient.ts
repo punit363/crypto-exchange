@@ -178,6 +178,7 @@ export function getActiveUser() {
 // Market endpoints
 export async function getTicker(market: string) {
   const response = await apiClient.get(`/ticker?market=${market}`);
+  console.log("[API GET TICKER] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
@@ -189,21 +190,25 @@ export async function getUserOrders(
   const response = await apiClient.get(
     `/order?userId=${userId}&market=${market}&type=${type}`
   );
+  console.log("[API GET USER ORDERS] Response received for user:", userId, "market:", market, "type:", type, response.data);
   return handleResponse(response.data);
 }
 
 export async function getTickers(): Promise<Ticker[]> {
   const response = await apiClient.get("/tickers");
+  console.log("[API GET TICKERS] Response received:", response.data);
   return handleResponse(response.data);
 }
 
 export async function getTrades(market: string): Promise<any[]> {
   const response = await apiClient.get(`/trades?market=${market}`);
+  console.log("[API GET TRADES] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
 export async function getDepth(market: string): Promise<any> {
   const response = await apiClient.get(`/depth?symbol=${market}`);
+  console.log("[API GET DEPTH] Response received for market:", market, response.data);
   return handleResponse(response.data);
 }
 
@@ -217,12 +222,14 @@ export async function getKlines(
     `/kline?market=${market}&interval=${interval}&startTime=${startTime}&endTime=${endTime}`
   );
   const data: KLine[] = handleResponse(response.data);
+  console.log("[API GET KLINES] Response received for market:", market, "interval:", interval, "startTime:", startTime, "endTime:", endTime, data);
   return data.sort((x, y) => (Number(x.end) < Number(y.end) ? -1 : 1));
 }
 
 export async function createOrder(orderPayload: any): Promise<any> {
   const response = await apiClient.post("/order", orderPayload);
   const data = handleResponse(response.data);
+  console.log("[API CREATE ORDER] Order placed successfully:", data);
   toast.success("Order placed successfully!");
   return data;
 }
@@ -234,6 +241,7 @@ export async function createOrder(orderPayload: any): Promise<any> {
 export async function getUserBalance(userId: string): Promise<any> {
   console.log("[API GET BALANCE] Initiating request for User ID:", userId);
   const response = await apiClient.get(`/balance?userId=${userId}`);
+  console.log("[API GET BALANCE] Received response:", response.data);
   return response.data;
 }
 

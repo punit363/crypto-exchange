@@ -34,7 +34,9 @@ wss.on("connection", (ws: any) => {
 
       if (data.type === "TICKER") {
         console.log(`Subscribing to TICKER for ${market}`);
-        // Add a ticker function to your RedisHandler if you need one
+        redis.subscribeToTicker(market, (ticker_data) => {
+          ws.send(JSON.stringify(ticker_data));
+        });
       }
     }
   });

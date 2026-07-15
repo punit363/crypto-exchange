@@ -11,6 +11,8 @@ interface UserBalance {
   };
 }
 
+const acceptedAssets = ["INR", "BTC", "ETH", "SOL", "XRP", "ADA", "DOGE"];
+
 const balance_arr: [string, UserBalance][] = [
   [
     "usr_6q9g3syt014",
@@ -209,7 +211,7 @@ const addCandlesToDB = async (
 ) => {
   const market = `${baseAsset}_${quoteAsset}`;
   let currentCandle = activeCandles.get(market);
-
+  console.log(currentCandle, "currentCandle---------");
   for (const fill of fills) {
     if (!currentCandle || currentCandle.bucket_time < fill.bucketTime) {
       if (currentCandle) {
@@ -329,6 +331,18 @@ class Engine {
       case "PLACE_ORDER": {
         const redis = await RedisHandler.createInstance();
         try {
+          const { price, quantity, side, type, baseAsset, quoteAsset } =
+            order.order_data;
+
+          if (
+            !acceptedAssets.includes(baseAsset) ||
+            !acceptedAssets.includes(quoteAsset)
+          ) {
+            throw new Error(
+              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+            );
+          }
+
           const orderbook = this.orderbooks.find(
             (o) => o.baseAsset === order.order_data.baseAsset
           );
@@ -336,9 +350,6 @@ class Engine {
           if (!orderbook) {
             throw new Error("No orderbook found");
           }
-
-          const { price, quantity, side, type, baseAsset, quoteAsset } =
-            order.order_data;
 
           console.log("step------------=========", order.order_data);
 
@@ -361,7 +372,6 @@ class Engine {
           } = orderbook.placeOrder(order.user_id, order.order_data);
 
           if (!data) {
-            // OPTIMIZATION: Non-blocking execution response failure delivery
             redis
               .sendApiResponse(
                 {
@@ -409,7 +419,6 @@ class Engine {
             unused_market_order_amount,
           };
 
-          // OPTIMIZATION: Non-blocking matched order API delivery
           redis
             .sendApiResponse(
               {
@@ -434,7 +443,6 @@ class Engine {
             trade: fills,
           };
 
-          // OPTIMIZATION: Non-blocking trade publish to Redis streams
           redis.publishTrade(trade_publish_data).catch((err) => {
             console.error(
               `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
@@ -449,8 +457,6 @@ class Engine {
             book: orderbook.getBookWithQuantity(),
           };
 
-          /* STREAMING_CHUNK: Dispatching non-blocking orderbook broadcasts... */
-          // OPTIMIZATION: Non-blocking depth update publish
           redis
             .publishOrderBookWithQuantity(book_with_quantity_publish_data)
             .catch((err) => {
@@ -462,12 +468,10 @@ class Engine {
 
           console.log("6---------------------");
 
-          // OPTIMIZATION: Snapshot publishing should never freeze thread execution
           orderbook.publishSnapshot();
 
           console.log("7---------------------");
 
-          // OPTIMIZATION: Fire-and-forget order creation synchronization to write database queue
           redis
             .sendToDB({
               action: "ADD_ORDER",
@@ -494,6 +498,20 @@ class Engine {
           console.log("8---------------------");
 
           if (fills.length > 0) {
+            for (const fill of fills) {
+              const ticker_trade = {
+                market: `${baseAsset}_${quoteAsset}`,
+                price: fill.price,
+                quantity: fill.quantity,
+                trade_id: fill.tradeId,
+              };
+              console.log("ticker_trade++++++++++++", ticker_trade);
+              await redis.saveTickerData(
+                `${baseAsset}_${quoteAsset}`,
+                ticker_trade
+              );
+            }
+
             addCandlesToDB(fills, baseAsset, quoteAsset);
 
             console.log("9---------------------");
@@ -511,7 +529,6 @@ class Engine {
               side,
             }));
 
-            // OPTIMIZATION: Non-blocking trades persistence queue dispatch
             redis
               .sendToDB({
                 action: "ADD_TRADES",
@@ -530,7 +547,6 @@ class Engine {
               status: fill.otherOrderStatus,
             }));
 
-            // OPTIMIZATION: Non-blocking matching records updater
             redis
               .sendToDB({
                 action: "UPDATE_ORDERS",
@@ -551,7 +567,6 @@ class Engine {
             error.message
           );
 
-          // Return standardized API error response cleanly over Redis instead of crashing
           redis
             .sendApiResponse(
               {
@@ -577,6 +592,15 @@ class Engine {
         try {
           const user_id = order.user_id;
           const { order_id, baseAsset, quoteAsset, side } = order.order_data;
+
+          if (
+            !acceptedAssets.includes(baseAsset) ||
+            !acceptedAssets.includes(quoteAsset)
+          ) {
+            throw new Error(
+              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+            );
+          }
 
           const orderbook = this.orderbooks.find(
             (o) => o.baseAsset === baseAsset
@@ -687,8 +711,16 @@ class Engine {
       case "FETCH_OPEN_ORDERS": {
         const redis = await RedisHandler.createInstance();
         try {
-          const user_id = order.user_id;
           const { baseAsset, quoteAsset } = order.order_data;
+
+          if (
+            !acceptedAssets.includes(baseAsset) ||
+            !acceptedAssets.includes(quoteAsset)
+          ) {
+            throw new Error(
+              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+            );
+          }
 
           const orderbook = this.orderbooks.find(
             (o) => o.baseAsset === baseAsset
@@ -701,9 +733,6 @@ class Engine {
 
           const response = orderbook.fetchOpenOrders();
 
-          // FIX: Removed duplicate "const redis = await RedisHandler.createInstance()" declaration to prevent runtime syntax crashes.
-
-          // OPTIMIZATION: Non-blocking asynchronous transmission of successfully fetched open orders back to API gateway
           redis
             .sendApiResponse(
               {
@@ -728,7 +757,6 @@ class Engine {
             error.message
           );
 
-          // OPTIMIZATION: Non-blocking error response fallback routing
           redis
             .sendApiResponse(
               {
@@ -771,6 +799,10 @@ class Engine {
         try {
           const { tx_id, asset, type, amount } = transaction.transaction_data;
           const { user_id } = transaction;
+
+          if (!acceptedAssets.includes(asset)) {
+            throw new Error(`Invalid baseAsset or quoteAsset: ${asset}`);
+          }
 
           const user_balance: UserBalance | any = balance.get(user_id);
 
@@ -959,6 +991,10 @@ class Engine {
         throw new Error("User ID is required to add a user.");
       }
 
+      if (!acceptedAssets.includes(asset)) {
+        throw new Error(`Invalid baseAsset or quoteAsset: ${asset}`);
+      }
+
       const user_balance = balance.get(user_id);
 
       if (user_balance) {
@@ -975,7 +1011,6 @@ class Engine {
         },
       });
 
-      // OPTIMIZATION: Non-blocking asynchronous transmission of successful onboarding message
       redis
         .sendApiResponse(
           {
@@ -997,7 +1032,6 @@ class Engine {
         error.message
       );
 
-      // OPTIMIZATION: Non-blocking error response fallback routing
       redis
         .sendApiResponse(
           {
@@ -1041,7 +1075,6 @@ class Engine {
             throw new Error("No market data available");
           }
 
-          // OPTIMIZATION: Non-blocking asynchronous transmission of successfully fetched markets
           redis
             .sendApiResponse(
               {

@@ -43,7 +43,6 @@ export const OrderRepo = {
   ) => {
     const [base_asset, quote_asset] = market.split("_");
 
-    // Determine which statuses to fetch based on the requested type
     const targetStatuses =
       type === "open" ? ["open", "partial"] : ["filled", "cancelled"];
 
@@ -57,9 +56,9 @@ export const OrderRepo = {
         },
       },
       orderBy: {
-        created_at: "desc", // Newest orders first
+        created_at: "desc",
       },
-      take: 100, // Limit to prevent massive payloads
+      take: 100,
     });
 
     return orders;
