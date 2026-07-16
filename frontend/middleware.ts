@@ -101,5 +101,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // EXCLUDE /icons/ and other static files here!
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icons/).*)"],
 };

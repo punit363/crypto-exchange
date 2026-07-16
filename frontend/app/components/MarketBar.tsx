@@ -20,10 +20,11 @@ export const MarketBar = ({ market }: { market: string }) => {
 
     const openPrice = Number(target.open || 0);
     const lastPrice = Number(target.lastPrice || target.close || 0);
-    
+
     // Calculate 24H Price Change metrics on the fly
     const priceChange = lastPrice - openPrice;
-    const priceChangePercent = openPrice > 0 ? (priceChange / openPrice) * 100 : 0;
+    const priceChangePercent =
+      openPrice > 0 ? (priceChange / openPrice) * 100 : 0;
 
     return {
       symbol: raw.market || target.symbol || market,
@@ -91,11 +92,20 @@ export const MarketBar = ({ market }: { market: string }) => {
         <div className="flex items-center flex-row space-x-8 pl-6">
           {/* Last Price */}
           <div className="flex flex-col justify-center">
-            <p className={`font-semibold text-lg tabular-nums ${isPositive ? "text-[#00C278]" : "text-[#F94D5C]"}`}>
-              {ticker?.lastPrice ? (Number(ticker.lastPrice) / SCALE).toFixed(2) : "--"}
+            <p
+              className={`font-semibold text-lg tabular-nums ${
+                isPositive ? "text-[#00C278]" : "text-[#F94D5C]"
+              }`}
+            >
+              {ticker?.lastPrice
+                ? (Number(ticker.lastPrice) / SCALE).toFixed(2)
+                : "--"}
             </p>
             <p className="font-medium text-xs text-slate-500 tabular-nums">
-              ${ticker?.lastPrice ? (Number(ticker.lastPrice) / SCALE).toFixed(2) : "--"}
+              $
+              {ticker?.lastPrice
+                ? (Number(ticker.lastPrice) / SCALE).toFixed(2)
+                : "--"}
             </p>
           </div>
 
@@ -104,8 +114,20 @@ export const MarketBar = ({ market }: { market: string }) => {
             <p className="font-medium text-[11px] text-slate-500 mb-0.5">
               24H Change
             </p>
-            <p className={`text-sm font-medium tabular-nums ${ticker ? (isPositive ? "text-[#00C278]" : "text-[#F94D5C]") : "text-slate-500"}`}>
-              {ticker ? `${isPositive ? "+" : ""}${(changeAmount / SCALE).toFixed(2)}  ${isPositive ? "+" : ""}${changePercent.toFixed(2)}%` : "--"}
+            <p
+              className={`text-sm font-medium tabular-nums ${
+                ticker
+                  ? isPositive
+                    ? "text-[#00C278]"
+                    : "text-[#F94D5C]"
+                  : "text-slate-500"
+              }`}
+            >
+              {ticker
+                ? `${isPositive ? "+" : ""}${(changeAmount / SCALE).toFixed(
+                    2
+                  )}  ${isPositive ? "+" : ""}${changePercent.toFixed(2)}%`
+                : "--"}
             </p>
           </div>
 
@@ -135,10 +157,12 @@ export const MarketBar = ({ market }: { market: string }) => {
               24H Volume
             </p>
             <p className="text-sm font-medium tabular-nums text-slate-200">
-              {ticker?.volume ? (Number(ticker.volume) / SCALE).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }) : "--"}
+              {ticker?.volume
+                ? (Number(ticker.volume) / SCALE).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : "--"}
             </p>
           </div>
         </div>
@@ -149,7 +173,8 @@ export const MarketBar = ({ market }: { market: string }) => {
 function Ticker({ market }: { market: string }) {
   const [base, quote] = market.split("_");
 
-  const getIconUrl = (symbol: string) => `/icons/${symbol.toLowerCase()}_coin.svg`;
+  const getIconUrl = (symbol: string) =>
+    `/icons/${symbol.toLowerCase()}_coin.svg`;
 
   return (
     <div className="flex items-center h-full shrink-0 pr-6 border-r border-slate-800/50 pl-4">
@@ -162,8 +187,16 @@ function Ticker({ market }: { market: string }) {
           width={28}
           height={28}
           // Optional: fallback to a generic icon if the specific one doesn't exist
-          onError={(e) => { e.currentTarget.src = "/icons/generic_coin.svg"; }}
+          onError={(e) => {
+            if (!e.currentTarget.src.includes("generic_coin.svg")) {
+              e.currentTarget.src = "/icons/generic_coin.svg";
+            } else {
+              // If even the generic one fails, hide the broken icon to stop the loop
+              e.currentTarget.style.display = "none";
+            }
+          }}
         />
+
         {/* Quote Asset Icon */}
         <Image
           alt={quote}
@@ -171,7 +204,14 @@ function Ticker({ market }: { market: string }) {
           src={getIconUrl(quote)}
           width={28}
           height={28}
-          onError={(e) => { e.currentTarget.src = "/icons/generic_coin.svg"; }}
+          onError={(e) => {
+            if (!e.currentTarget.src.includes("generic_coin.svg")) {
+              e.currentTarget.src = "/icons/generic_coin.svg";
+            } else {
+              // If even the generic one fails, hide the broken icon to stop the loop
+              e.currentTarget.style.display = "none";
+            }
+          }}
         />
       </div>
       <div className="flex items-center cursor-pointer rounded-lg p-3 hover:opacity-80 transition-opacity">

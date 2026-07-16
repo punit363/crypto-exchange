@@ -56,8 +56,8 @@ async function runMarketMaker() {
           quantity,
           side,
           type: "limit",
-          baseAsset: "BTC",
-          quoteAsset: "USDT",
+          baseAsset: "GRT",
+          quoteAsset: "ETH",
         },
         {
           headers: {
@@ -78,7 +78,7 @@ async function runMarketMaker() {
         await authenticate();
       }
     }
-  }, 200);
+  }, 1000);
 }
 
 runMarketMaker();

@@ -13,7 +13,6 @@ interface MarketData {
   baseAsset: string;
   quoteAsset: string;
   currentPrice: number;
-  // Generated/extended metrics
   price24hAgo?: number;
   change24h?: number;
   high24h?: number;
@@ -22,7 +21,6 @@ interface MarketData {
   sparkline?: number[];
 }
 
-/* STREAMING_CHUNK: Initializing Dashboard Page and State Hooks... */
 export default function Dashboard() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -31,15 +29,12 @@ export default function Dashboard() {
   const [engineLatency, setEngineLatency] = useState(12.4);
   const [tradeCount, setTradeCount] = useState(14829);
 
-  // Load active user profile on mount
   useEffect(() => {
     setCurrentUser(getActiveUser());
   }, []);
 
-  /* STREAMING_CHUNK: Designing live /market/all data-fetching with fallback state... */
   const fetchMarkets = useCallback(async () => {
     try {
-      // Query your backend API endpoint
       const response = await apiClient.get("/market/all");
 
       let parsedMarkets: MarketData[] = [];
@@ -51,7 +46,6 @@ export default function Dashboard() {
         throw new Error("Invalid API response format");
       }
 
-      // Extend raw prices with realistic simulated 24h market stats
       const extendedMarkets = parsedMarkets.map((m) => {
         const currentPrice = Number(m.currentPrice);
         const changePercent =
@@ -60,7 +54,6 @@ export default function Dashboard() {
         const volumeFactor =
           Math.abs(Math.sin(m.baseAsset.charCodeAt(0))) * 1000 + 100;
 
-        // Build a deterministic simulated price sparkline array
         const sparkline: number[] = [];
         for (let i = 0; i < 12; i++) {
           const variance =
@@ -87,14 +80,16 @@ export default function Dashboard() {
         "Could not retrieve live markets, loading premium fallback models:",
         error
       );
-      // Premium seed data for local testing
       const fallbackList = [
-        { baseAsset: "BTC", quoteAsset: "INR", currentPrice: 8900000 * SCALE },
-        { baseAsset: "ETH", quoteAsset: "INR", currentPrice: 260000 * SCALE },
-        { baseAsset: "SOL", quoteAsset: "INR", currentPrice: 14500 * SCALE },
-        { baseAsset: "XRP", quoteAsset: "INR", currentPrice: 210 * SCALE },
-        { baseAsset: "ADA", quoteAsset: "INR", currentPrice: 85 * SCALE },
-        { baseAsset: "DOGE", quoteAsset: "INR", currentPrice: 35 * SCALE },
+        { baseAsset: "BTC", quoteAsset: "USDT", currentPrice: 89000 * SCALE },
+        { baseAsset: "ETH", quoteAsset: "USDT", currentPrice: 2600 * SCALE },
+        { baseAsset: "SOL", quoteAsset: "USDT", currentPrice: 145 * SCALE },
+        { baseAsset: "XRP", quoteAsset: "USDT", currentPrice: 2.1 * SCALE },
+        { baseAsset: "ADA", quoteAsset: "USDT", currentPrice: 0.85 * SCALE },
+        { baseAsset: "DOGE", quoteAsset: "USDT", currentPrice: 0.35 * SCALE },
+        { baseAsset: "ETH", quoteAsset: "BTC", currentPrice: 0.029 * SCALE },
+        { baseAsset: "SOL", quoteAsset: "BTC", currentPrice: 0.0016 * SCALE },
+        { baseAsset: "SOL", quoteAsset: "ETH", currentPrice: 0.055 * SCALE },
       ];
 
       const extendedFallbacks = fallbackList.map((m) => {
@@ -130,14 +125,11 @@ export default function Dashboard() {
     }
   }, []);
 
-  /* STREAMING_CHUNK: Setting up real-time engine diagnostics triggers... */
   useEffect(() => {
     fetchMarkets();
 
-    // Polling interval to fetch prices
     const marketInterval = setInterval(fetchMarkets, 8000);
 
-    // Minor diagnostics microservice ticker simulator
     const diagnosticsInterval = setInterval(() => {
       setEngineLatency(Number((10 + Math.random() * 4).toFixed(1)));
       setTradeCount((prev) => prev + Math.floor(Math.random() * 3));
@@ -149,7 +141,16 @@ export default function Dashboard() {
     };
   }, [fetchMarkets]);
 
-  /* STREAMING_CHUNK: Rendering Inline SVG Sparklines... */
+  // Group markets by Quote Asset dynamic helper
+  const groupedMarkets = useMemo(() => {
+    return markets.reduce((acc, m) => {
+      const quote = m.quoteAsset || "USDT";
+      if (!acc[quote]) acc[quote] = [];
+      acc[quote].push(m);
+      return acc;
+    }, {} as Record<string, MarketData[]>);
+  }, [markets]);
+
   const renderSparkline = (
     points: number[] | undefined,
     change: number = 0
@@ -158,43 +159,40 @@ export default function Dashboard() {
     const min = Math.min(...points);
     const max = Math.max(...points);
     const range = max - min || 1;
-    const width = 120;
-    const height = 35;
+    const width = 200;
+    const height = 40;
 
     const svgPoints = points
       .map((p, i) => {
         const x = (i / (points.length - 1)) * width;
-        const y = height - ((p - min) / range) * height;
+        const y = height - ((p - min) / range) * (height - 6) - 3;
         return `${x},${y}`;
       })
       .join(" ");
 
     const strokeColor = change >= 0 ? "#00C278" : "#F94D5C";
-    const fillColor =
-      change >= 0 ? "rgba(0, 194, 120, 0.1)" : "rgba(249, 77, 92, 0.1)";
 
     return (
       <svg
-        className="overflow-visible"
-        width={width}
-        height={height}
+        className="w-full h-full overflow-hidden"
         viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
       >
         <defs>
           <linearGradient
-            id={`gradient-${strokeColor}`}
+            id={`grad-${strokeColor}`}
             x1="0"
             y1="0"
             x2="0"
             y2="1"
           >
-            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.2" />
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.18" />
             <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
           </linearGradient>
         </defs>
         <path
           d={`M 0,${height} L ${svgPoints} L ${width},${height} Z`}
-          fill={`url(#gradient-${strokeColor})`}
+          fill={`url(#grad-${strokeColor})`}
         />
         <polyline
           fill="none"
@@ -206,19 +204,19 @@ export default function Dashboard() {
     );
   };
 
-  /* STREAMING_CHUNK: Calculating simulated asset distributions... */
   const portfolioWeights = useMemo(() => {
     return [
       { name: "BTC", value: 45, color: "#F7931A" },
       { name: "ETH", value: 30, color: "#627EEA" },
       { name: "SOL", value: 15, color: "#14F195" },
-      { name: "INR", value: 10, color: "#00C278" },
+      { name: "USDT", value: 10, color: "#00C278" },
     ];
   }, []);
 
   return (
     <AuthGuard>
       <main className="min-h-screen w-full bg-[#0E1015] text-white flex flex-col font-sans select-none pb-12">
+        {/* Upper Dashboard Statistics Row */}
         <section className="max-w-7xl w-full mx-auto px-6 mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Bento Box 1: Estimated Portfolio net worth summary */}
           <div className="bg-[#14151B] border border-slate-900 rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between md:col-span-2 h-48">
@@ -228,14 +226,11 @@ export default function Dashboard() {
                 Master Portfolio Value
               </p>
               <h1 className="text-3xl font-extrabold text-white tracking-tight mt-2 tabular-nums">
-                ₹
-                {(1849302.24).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                $22,148.24
               </h1>
               <p className="text-[11px] text-[#00C278] mt-1 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00C278] animate-ping" />
-                +₹42,829.12 (2.42%) in the last 24h
+                +$512.40 (2.42%) in the last 24h
               </p>
             </div>
 
@@ -282,116 +277,161 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
+        </section>
 
-          {/* Bento Box 3: Live Markets pricing index list (Wide Grid Panel) */}
-          <div className="bg-[#14151B] border border-slate-900 rounded-2xl p-6 md:col-span-2 flex flex-col justify-between">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-widest">
-                Liquid Spot Pairs
-              </span>
-              <button
-                onClick={fetchMarkets}
-                className="p-1 hover:bg-slate-900 rounded-md transition text-slate-400 hover:text-white"
+        {/* Grouped Square Box Markets Component Area */}
+        <section className="max-w-7xl w-full mx-auto px-6 mt-12 flex flex-col gap-10">
+          <div className="flex justify-between items-center px-2">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-white">
+                Market Spot Pairs
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Grouped by regional trade assets and quote hubs
+              </p>
+            </div>
+            <button
+              onClick={fetchMarkets}
+              className="p-1.5 hover:bg-slate-900 border border-slate-800 rounded-lg transition text-slate-400 hover:text-white"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.582"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex flex-col divide-y divide-slate-900/60 max-h-80 overflow-y-auto pr-1">
-              {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-[#00C278]/20 border-t-[#00C278] rounded-full animate-spin" />
-                </div>
-              ) : (
-                markets.map((m) => {
-                  const change = m.change24h || 0;
-                  const isPositive = change >= 0;
-                  return (
-                    <div
-                      key={`${m.baseAsset}_${m.quoteAsset}`}
-                      onClick={() =>
-                        router.push(`/trade/${m.baseAsset}_${m.quoteAsset}`)
-                      }
-                      className="flex justify-between items-center py-3 hover:bg-slate-900/10 cursor-pointer rounded-lg px-2 transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Dynamic Asset Icons Container */}
-                        <div className="flex -space-x-2.5">
-                          <Image
-                            src={`/icons/${m.baseAsset.toLowerCase()}_coin.svg`}
-                            alt={m.baseAsset}
-                            className="w-8 h-8 rounded-full border-2 border-[#14151B] bg-slate-800"
-                            width={28}
-                            height={28}
-                            onError={(e) => {
-                              e.currentTarget.src = "/icons/generic_coin.svg";
-                            }}
-                          />
-                          <Image
-                            src={`/icons/${m.quoteAsset.toLowerCase()}_coin.svg`}
-                            alt={m.quoteAsset}
-                            className="w-8 h-8 rounded-full border-2 border-[#14151B] bg-slate-800"
-                            width={28}
-                            height={28}
-                            onError={(e) => {
-                              e.currentTarget.src = "/icons/generic_coin.svg";
-                            }}
-                          />
-                        </div>
-
-                        <div className="flex flex-col ml-2">
-                          <span className="font-bold text-sm text-slate-200">
-                            {m.baseAsset}/{m.quoteAsset}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            Vol:{" "}
-                            {(m.volume24h || 0).toLocaleString(undefined, {
-                              maximumFractionDigits: 0,
-                            })}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="hidden sm:block">
-                        {renderSparkline(m.sparkline, change)}
-                      </div>
-
-                      <div className="flex flex-col text-right">
-                        <span className="font-mono text-sm font-bold text-slate-200">
-                          ₹
-                          {(m.currentPrice / SCALE).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                        <span
-                          className={`text-[11px] font-bold ${
-                            isPositive ? "text-[#00C278]" : "text-[#F94D5C]"
-                          }`}
-                        >
-                          {isPositive ? "+" : ""}
-                          {change.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.582"
+                />
+              </svg>
+            </button>
           </div>
 
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="h-40 bg-[#14151B] border border-slate-900 rounded-2xl animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            Object.entries(groupedMarkets).map(([quote, list]) => (
+              <div key={quote} className="flex flex-col gap-4">
+                {/* Hub Header Block */}
+                <div className="flex items-center gap-3 pl-2">
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center border border-slate-800 shrink-0">
+                    {/* <Image
+                      src={`/icons/${quote.toLowerCase()}_coin.svg`}
+                      alt={quote}
+                      width={28}
+                      height={28}
+                      className="rounded-full border-2 border-[#14151B] bg-slate-800"
+                      onError={(e) => {
+                        // Only set the fallback if we aren't already trying to load it
+                        if (!e.currentTarget.src.includes("generic_coin.svg")) {
+                          e.currentTarget.src = "/icons/generic_coin.svg";
+                        } else {
+                          // If even the generic one fails, hide the broken icon to stop the loop
+                          e.currentTarget.style.display = "none";
+                        }
+                      }}
+                    /> */}
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {quote} Markets Hub
+                  </h3>
+                </div>
+
+                {/* Dense Card Grid (referencing card proportions in Screenshot 2026-07-16 at 3.11.29 PM.png) */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {list.map((m) => {
+                    const change = m.change24h || 0;
+                    const isPositive = change >= 0;
+
+                    return (
+                      <div
+                        key={`${m.baseAsset}_${m.quoteAsset}`}
+                        onClick={() =>
+                          router.push(`/trade/${m.baseAsset}_${m.quoteAsset}`)
+                        }
+                        className="relative bg-[#14151B] border border-slate-900 rounded-2xl p-5 hover:border-slate-700/80 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between h-[160px] group"
+                      >
+                        {/* Upper card data */}
+                        <div className="z-10">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+                              {m.baseAsset}
+                              <span className="text-slate-500 font-semibold text-xs tracking-wide">
+                                {m.quoteAsset}
+                              </span>
+                            </span>
+
+                            {/* <Image
+                              src={`/icons/${m.baseAsset.toLowerCase()}_coin.svg`}
+                              alt={m.baseAsset}
+                              width={28}
+                              height={28}
+                              className="rounded-full border-2 border-[#14151B] bg-slate-800"
+                              onError={(e) => {
+                                // Only set the fallback if we aren't already trying to load it
+                                if (
+                                  !e.currentTarget.src.includes(
+                                    "generic_coin.svg"
+                                  )
+                                ) {
+                                  e.currentTarget.src =
+                                    "/icons/generic_coin.svg";
+                                } else {
+                                  // If even the generic one fails, hide the broken icon to stop the loop
+                                  e.currentTarget.style.display = "none";
+                                }
+                              }}
+                            /> */}
+                          </div>
+
+                          <p className="text-xl font-bold text-white mt-2.5 tracking-tight tabular-nums">
+                            {quote === "INR" ? "₹" : "$"}
+                            {(m.currentPrice / SCALE).toLocaleString(
+                              undefined,
+                              {
+                                minimumFractionDigits: quote === "INR" ? 2 : 4,
+                                maximumFractionDigits: quote === "INR" ? 2 : 4,
+                              }
+                            )}
+                          </p>
+
+                          <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900/50 border border-slate-800/40">
+                            <span
+                              className={`text-[10px] font-bold tracking-wide flex items-center ${
+                                isPositive ? "text-[#00C278]" : "text-[#F94D5C]"
+                              }`}
+                            >
+                              {isPositive ? "▲ +" : "▼ "}
+                              {change.toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Visual Sparkline matching Screenshot 2026-07-16 at 3.11.29 PM.png base container gradient */}
+                        <div className="absolute bottom-0 left-0 right-0 h-10 w-full select-none pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                          {renderSparkline(m.sparkline, change)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* Lower Portfolio & Ticker Log Diagnostics row */}
+        <section className="max-w-7xl w-full mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bento Box 4: Portfolio asset allocation donut view */}
           <div className="bg-[#14151B] border border-slate-900 rounded-2xl p-6 flex flex-col justify-between h-96">
             <div>
@@ -399,7 +439,6 @@ export default function Dashboard() {
                 Asset Allocation
               </span>
 
-              {/* Pie Segment SVG Layout */}
               <div className="flex justify-center py-6">
                 <svg
                   className="overflow-visible"
@@ -415,8 +454,6 @@ export default function Dashboard() {
                     stroke="#1A1D24"
                     strokeWidth="18"
                   />
-
-                  {/* Real-time layered color segments */}
                   <circle
                     cx="70"
                     cy="70"
@@ -461,7 +498,6 @@ export default function Dashboard() {
                     strokeDashoffset="254.4"
                     transform="rotate(234 70 70)"
                   />
-
                   <text
                     x="70"
                     y="76"
@@ -475,7 +511,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Grid Legends */}
             <div className="grid grid-cols-2 gap-3.5 border-t border-slate-900/60 pt-4">
               {portfolioWeights.map((w) => (
                 <div key={w.name} className="flex items-center gap-2">
@@ -510,37 +545,37 @@ export default function Dashboard() {
               {[
                 {
                   time: "12:13:38",
-                  pair: "BTC/INR",
+                  pair: "BTC/USDT",
                   qty: 0.145,
-                  price: 8904230,
+                  price: 89042.3,
                   side: "buy",
                 },
                 {
                   time: "12:13:32",
-                  pair: "ETH/INR",
+                  pair: "ETH/USDT",
                   qty: 2.12,
-                  price: 260340,
+                  price: 2603.4,
                   side: "sell",
                 },
                 {
                   time: "12:13:28",
-                  pair: "SOL/INR",
+                  pair: "SOL/USDT",
                   qty: 15.0,
-                  price: 14520,
+                  price: 145.2,
                   side: "buy",
                 },
                 {
                   time: "12:13:19",
-                  pair: "XRP/INR",
+                  pair: "XRP/USDT",
                   qty: 850.0,
-                  price: 211,
+                  price: 2.11,
                   side: "sell",
                 },
                 {
                   time: "12:13:04",
-                  pair: "DOGE/INR",
+                  pair: "DOGE/USDT",
                   qty: 12000,
-                  price: 35.12,
+                  price: 0.35,
                   side: "buy",
                 },
               ].map((t, idx) => (
@@ -571,7 +606,10 @@ export default function Dashboard() {
                       {t.qty} Coins
                     </span>
                     <span className="text-xs font-mono font-bold text-slate-200">
-                      ₹{t.price.toLocaleString()}
+                      $
+                      {t.price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -581,49 +619,6 @@ export default function Dashboard() {
             <div className="border-t border-slate-900 pt-3 mt-4 text-[11px] text-slate-400 flex items-center justify-between">
               <span>Apex Core Ledger Synchronization</span>
               <span className="font-mono text-white">Status: Normal</span>
-            </div>
-          </div>
-
-          {/* Bento Box 6: API Gateway status card */}
-          <div className="bg-[#14151B] border border-slate-900 rounded-2xl p-6 flex flex-col justify-between h-96 md:col-span-1">
-            <div>
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-widest">
-                Gateway Network Status
-              </span>
-
-              <div className="flex flex-col gap-4 mt-6">
-                <div className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-900">
-                  <span className="text-xs text-slate-400">
-                    Node API Gateway
-                  </span>
-                  <span className="text-xs font-bold text-[#00C278]">
-                    ONLINE
-                  </span>
-                </div>
-                <div className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-900">
-                  <span className="text-xs text-slate-400">
-                    Memory Engine State
-                  </span>
-                  <span className="text-xs font-bold text-[#00C278]">
-                    SYNCHRONIZED
-                  </span>
-                </div>
-                <div className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-900">
-                  <span className="text-xs text-slate-400">
-                    CORS Handshake Check
-                  </span>
-                  <span className="text-xs font-bold text-[#00C278]">
-                    PASSED
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-slate-900 pt-4">
-              <p className="text-[10px] text-slate-500 leading-relaxed">
-                All connections are authenticated dynamically. Changes to local
-                memory storage are broadcast to layouts instantly.
-              </p>
             </div>
           </div>
         </section>
