@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthGuard } from "../components/AuthGuard";
 import { getActiveUser, apiClient } from "../utils/httpClient";
 import { toast } from "react-hot-toast";
+import Image from "next/image";
 
 const SCALE = 100_000_000; // 10^8 Satoshi Multiplier
 
@@ -326,10 +327,31 @@ export default function Dashboard() {
                       className="flex justify-between items-center py-3 hover:bg-slate-900/10 cursor-pointer rounded-lg px-2 transition"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-extrabold text-[11px] text-slate-300">
-                          {m.baseAsset}
+                        {/* Dynamic Asset Icons Container */}
+                        <div className="flex -space-x-2.5">
+                          <Image
+                            src={`/icons/${m.baseAsset.toLowerCase()}_coin.svg`}
+                            alt={m.baseAsset}
+                            className="w-8 h-8 rounded-full border-2 border-[#14151B] bg-slate-800"
+                            width={28}
+                            height={28}
+                            onError={(e) => {
+                              e.currentTarget.src = "/icons/generic_coin.svg";
+                            }}
+                          />
+                          <Image
+                            src={`/icons/${m.quoteAsset.toLowerCase()}_coin.svg`}
+                            alt={m.quoteAsset}
+                            className="w-8 h-8 rounded-full border-2 border-[#14151B] bg-slate-800"
+                            width={28}
+                            height={28}
+                            onError={(e) => {
+                              e.currentTarget.src = "/icons/generic_coin.svg";
+                            }}
+                          />
                         </div>
-                        <div className="flex flex-col">
+
+                        <div className="flex flex-col ml-2">
                           <span className="font-bold text-sm text-slate-200">
                             {m.baseAsset}/{m.quoteAsset}
                           </span>

@@ -17,7 +17,10 @@ interface UserBalances {
 }
 
 // Complete list of supported assets on your upgraded Matching Engine
-const SUPPORTED_ASSETS = ["INR", "BTC", "ETH", "SOL", "XRP", "ADA", "DOGE"];
+const SUPPORTED_ASSETS =  [
+  "BTC", "ETH", "SOL", "XRP", "DOGE", "ADA", "LINK", "MATIC", "BCH", "FIL", 
+  "AVAX", "LTC", "DOT", "UNI", "AAVE", "GRT", "USDT", "USDC", "USD"
+];
 
 export default function BalancePage() {
   const [currentUser, setCurrentUser] = useState<any>(null);

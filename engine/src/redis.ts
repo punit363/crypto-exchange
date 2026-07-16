@@ -39,22 +39,22 @@ class RedisHandler {
     return order;
   };
 
-  publishTrade = (trade_details: any) => {
-    console.log("publishing trade");
-    return this.publisher.publish("TRADE", JSON.stringify(trade_details));
+  publishTrade = (market: string, payload: any) => {
+    console.log("publishing trade9999999999999999999999999999", `TRADE:${market}`);
+    return this.publisher.publish(`TRADE:${market}`, JSON.stringify(payload));
   };
 
-  publishTicker = (ticker_details: any) => {
-    console.log("publishing ticker");
-    return this.publisher.publish(`TICKER:${ticker_details.market}`, JSON.stringify(ticker_details));
+  publishTicker = (market: string, payload: any) => {
+    console.log("publishing ticker999999999999999999999999999", `TICKER:${market}`);
+    return this.publisher.publish(`TICKER:${market}`, JSON.stringify(payload));
   };
 
-  publishOrderBookWithQuantity = (book_details: any) => {
-    console.log("publishing book");
-    return this.publisher.publish("BOOK", JSON.stringify(book_details));
+  publishOrderBookWithQuantity = (market: string, payload: any) => {
+    console.log("publishing book999999999999999999999999999", `BOOK:${market}`);
+    return this.publisher.publish(`BOOK:${market}`, JSON.stringify(payload));
   };
 
-  setBookWithQuantity = (payload: any, market: string) => {
+  setBookWithQuantity = (market: string, payload: any) => {
     return this.client.set(`DEPTH:${market}`, JSON.stringify(payload));
   };
 
@@ -109,7 +109,7 @@ class RedisHandler {
 
       console.log("Ticker data generated:", ticker_details);
 
-      await this.publishTicker(ticker_details);
+      await this.publishTicker(market, ticker_details);
     } catch (err: any) {
       console.error(
         `[CRITICAL] Failed to execute ticker save pipeline:`,

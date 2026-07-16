@@ -11,11 +11,51 @@ interface UserBalance {
   };
 }
 
-const acceptedAssets = ["INR", "BTC", "ETH", "SOL", "XRP", "ADA", "DOGE"];
+const SUPPORTED_MARKETS = [
+  // --- USDT Hub (High Liquidity) ---
+  { base: "BTC", quote: "USDT" },
+  { base: "ETH", quote: "USDT" },
+  { base: "SOL", quote: "USDT" },
+  { base: "XRP", quote: "USDT" },
+  { base: "DOGE", quote: "USDT" },
+  { base: "ADA", quote: "USDT" },
+  { base: "LINK", quote: "USDT" },
+  { base: "MATIC", quote: "USDT" },
+  { base: "BCH", quote: "USDT" },
+  { base: "FIL", quote: "USDT" },
+
+  // --- USDC Hub (Regulated Stablecoin) ---
+  { base: "BTC", quote: "USDC" },
+  { base: "ETH", quote: "USDC" },
+  { base: "SOL", quote: "USDC" },
+  { base: "AVAX", quote: "USDC" },
+
+  // --- USD Hub (Fiat) ---
+  { base: "BTC", quote: "USD" },
+  { base: "ETH", quote: "USD" },
+  { base: "LTC", quote: "USD" },
+
+  // --- BTC Hub (Crypto-Native Pairs) ---
+  { base: "ETH", quote: "BTC" },
+  { base: "SOL", quote: "BTC" },
+  { base: "ADA", quote: "BTC" },
+  { base: "XRP", quote: "BTC" },
+  { base: "DOT", quote: "BTC" },
+  { base: "LINK", quote: "BTC" },
+  { base: "AVAX", quote: "BTC" },
+  { base: "UNI", quote: "BTC" },
+
+  // --- ETH Hub (DeFi Pairs) ---
+  { base: "SOL", quote: "ETH" },
+  { base: "MATIC", quote: "ETH" },
+  { base: "AAVE", quote: "ETH" },
+  { base: "GRT", quote: "ETH" },
+  { base: "DOT", quote: "ETH" },
+];
 
 const balance_arr: [string, UserBalance][] = [
   [
-    "usr_6q9g3syt014",
+    "usr_7r6ej956isv",
     {
       INR: {
         available: 10000000000000,
@@ -202,7 +242,7 @@ type Candle = {
   vol: number;
 };
 
-const activeCandles = new Map<string, Candle>();
+let activeCandles = new Map<string, Candle>();
 
 const addCandlesToDB = async (
   fills: Fills[],
@@ -289,8 +329,11 @@ class Engine {
       );
 
       balance = new Map<string, UserBalance>(parsed.balances);
+      activeCandles = new Map<string, Candle>(parsed.candles);
     } catch {
-      this.orderbooks = [new Orderbook("BTC", "INR", [], [], "", 0)];
+      this.orderbooks = SUPPORTED_MARKETS.map(
+        (m) => new Orderbook(m.base, m.quote, [], [], "", 0)
+      );
       console.log("No snapshot found, starting fresh");
     }
 
@@ -305,6 +348,7 @@ class Engine {
           currentPrice: ob.currentPrice,
         })),
         balances: Array.from(balance.entries()),
+        activeCandles: Array.from(activeCandles.entries()),
       };
 
       fs.writeFileSync("./snapshot.json", JSON.stringify(currentSnapshot));
@@ -334,12 +378,13 @@ class Engine {
           const { price, quantity, side, type, baseAsset, quoteAsset } =
             order.order_data;
 
-          if (
-            !acceptedAssets.includes(baseAsset) ||
-            !acceptedAssets.includes(quoteAsset)
-          ) {
+          const isMarketSupported = SUPPORTED_MARKETS.some(
+            (m) => m.base === baseAsset && m.quote === quoteAsset
+          );
+
+          if (!isMarketSupported) {
             throw new Error(
-              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+              `Market pair ${baseAsset}_${quoteAsset} is not supported.`
             );
           }
 
@@ -438,12 +483,13 @@ class Engine {
 
           console.log("4---------------------");
 
+          const market = `${baseAsset}_${quoteAsset}`;
           const trade_publish_data = {
-            market: `${baseAsset}_${quoteAsset}`,
+            market,
             trade: fills,
           };
 
-          redis.publishTrade(trade_publish_data).catch((err) => {
+          redis.publishTrade(market, trade_publish_data).catch((err) => {
             console.error(
               `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
               err.message
@@ -453,12 +499,15 @@ class Engine {
           console.log("5---------------------");
 
           const book_with_quantity_publish_data = {
-            market: `${baseAsset}_${quoteAsset}`,
+            market,
             book: orderbook.getBookWithQuantity(),
           };
 
           redis
-            .publishOrderBookWithQuantity(book_with_quantity_publish_data)
+            .publishOrderBookWithQuantity(
+              market,
+              book_with_quantity_publish_data
+            )
             .catch((err) => {
               console.error(
                 `[Error] Failed to publish orderbook update, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
@@ -593,12 +642,13 @@ class Engine {
           const user_id = order.user_id;
           const { order_id, baseAsset, quoteAsset, side } = order.order_data;
 
-          if (
-            !acceptedAssets.includes(baseAsset) ||
-            !acceptedAssets.includes(quoteAsset)
-          ) {
+          const isMarketSupported = SUPPORTED_MARKETS.some(
+            (m) => m.base === baseAsset && m.quote === quoteAsset
+          );
+
+          if (!isMarketSupported) {
             throw new Error(
-              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+              `Market pair ${baseAsset}_${quoteAsset} is not supported.`
             );
           }
 
@@ -713,12 +763,13 @@ class Engine {
         try {
           const { baseAsset, quoteAsset } = order.order_data;
 
-          if (
-            !acceptedAssets.includes(baseAsset) ||
-            !acceptedAssets.includes(quoteAsset)
-          ) {
+          const isMarketSupported = SUPPORTED_MARKETS.some(
+            (m) => m.base === baseAsset && m.quote === quoteAsset
+          );
+
+          if (!isMarketSupported) {
             throw new Error(
-              `Invalid baseAsset or quoteAsset: ${baseAsset}, ${quoteAsset}`
+              `Market pair ${baseAsset}_${quoteAsset} is not supported.`
             );
           }
 
@@ -800,8 +851,12 @@ class Engine {
           const { tx_id, asset, type, amount } = transaction.transaction_data;
           const { user_id } = transaction;
 
-          if (!acceptedAssets.includes(asset)) {
-            throw new Error(`Invalid baseAsset or quoteAsset: ${asset}`);
+          const isAssetSupported = SUPPORTED_MARKETS.some(
+            (m) => m.base === asset || m.quote === asset
+          );
+
+          if (!isAssetSupported) {
+            throw new Error(`This asset : ${asset} is not supported.`);
           }
 
           const user_balance: UserBalance | any = balance.get(user_id);
@@ -991,8 +1046,12 @@ class Engine {
         throw new Error("User ID is required to add a user.");
       }
 
-      if (!acceptedAssets.includes(asset)) {
-        throw new Error(`Invalid baseAsset or quoteAsset: ${asset}`);
+      const isAssetSupported = SUPPORTED_MARKETS.some(
+        (m) => m.base === asset || m.quote === asset
+      );
+
+      if (!isAssetSupported) {
+        throw new Error(`This asset : ${asset} is not supported.`);
       }
 
       const user_balance = balance.get(user_id);

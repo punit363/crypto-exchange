@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Ticker as TickerType } from "../utils/types";
 import { getTicker } from "../utils/httpClient";
 import { wsClient } from "../utils/wsClient";
@@ -145,27 +146,37 @@ export const MarketBar = ({ market }: { market: string }) => {
     </div>
   );
 };
-
 function Ticker({ market }: { market: string }) {
+  const [base, quote] = market.split("_");
+
+  const getIconUrl = (symbol: string) => `/icons/${symbol.toLowerCase()}_coin.svg`;
+
   return (
     <div className="flex items-center h-full shrink-0 pr-6 border-r border-slate-800/50 pl-4">
       <div className="flex flex-row relative -mr-2">
-        <img
-          alt="Base Asset"
-          loading="lazy"
+        {/* Base Asset Icon */}
+        <Image
+          alt={base}
           className="z-10 rounded-full h-7 w-7 border-2 border-[#14151B]"
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s"
+          src={getIconUrl(base)}
+          width={28}
+          height={28}
+          // Optional: fallback to a generic icon if the specific one doesn't exist
+          onError={(e) => { e.currentTarget.src = "/icons/generic_coin.svg"; }}
         />
-        <img
-          alt="Quote Asset"
-          loading="lazy"
-          className="h-7 w-7 -ml-2 rounded-full border-2 border-[#14151B]"
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvBqZC_Q1TSYObZaMvK0DRFeHZDUtVMh08Q&s"
+        {/* Quote Asset Icon */}
+        <Image
+          alt={quote}
+          className="rounded-full h-7 w-7 border-2 border-[#14151B]"
+          src={getIconUrl(quote)}
+          width={28}
+          height={28}
+          onError={(e) => { e.currentTarget.src = "/icons/generic_coin.svg"; }}
         />
       </div>
       <div className="flex items-center cursor-pointer rounded-lg p-3 hover:opacity-80 transition-opacity">
-        <p className="font-bold text-lg text-white">
-          {market.replace("_", " / ")}
+        <p className="font-bold text-lg text-white ml-2">
+          {base} <span className="text-slate-500">/</span> {quote}
         </p>
       </div>
     </div>

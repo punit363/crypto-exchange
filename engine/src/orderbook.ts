@@ -73,7 +73,7 @@ export class Orderbook {
     this.asks = asks;
     this.lastTradeId = lastTradeId;
     this.currentPrice = currentPrice;
-    
+
     // Rebuild depth cache map upon snapshot load
     this.rebuildDepthCache();
   }
@@ -82,10 +82,14 @@ export class Orderbook {
     this.bookWithQuantity.bids = {};
     this.bookWithQuantity.asks = {};
     for (const bid of this.bids) {
-      this.bookWithQuantity.bids[bid.price] = (this.bookWithQuantity.bids[bid.price] || 0) + (bid.quantity - bid.filled);
+      this.bookWithQuantity.bids[bid.price] =
+        (this.bookWithQuantity.bids[bid.price] || 0) +
+        (bid.quantity - bid.filled);
     }
     for (const ask of this.asks) {
-      this.bookWithQuantity.asks[ask.price] = (this.bookWithQuantity.asks[ask.price] || 0) + (ask.quantity - ask.filled);
+      this.bookWithQuantity.asks[ask.price] =
+        (this.bookWithQuantity.asks[ask.price] || 0) +
+        (ask.quantity - ask.filled);
     }
   }
 
@@ -120,7 +124,7 @@ export class Orderbook {
         currentPrice: this.currentPrice,
       };
       const redis = await RedisHandler.createInstance();
-      redis.setBookWithQuantity(payload, market);
+      redis.setBookWithQuantity(market, payload);
     } catch (error) {
       console.error("Failed to push book snapshot to Redis:", error);
     }
@@ -154,7 +158,7 @@ export class Orderbook {
       if (price <= o.price || type === "market") {
         const fillQuantity = Math.min(quantity - filled, o.quantity - o.filled);
         o.filled += fillQuantity;
-        
+
         if (o.filled === o.quantity) {
           o.status = "filled";
         } else if (o.filled > 0) {
@@ -178,19 +182,19 @@ export class Orderbook {
           otherOrderStatus: o.status,
           bucketTime: this.getBucketTime(),
         });
-        
+
         filled += fillQuantity;
-        
+
         if (o.quantity === o.filled) {
           bid_splice_indexes.push(this.bids.indexOf(o));
         }
       }
-      
+
       // Clear key on depth reach zero to prevent memory leak
       if (this.bookWithQuantity.bids[o.price] <= 0) {
         delete this.bookWithQuantity.bids[o.price];
       }
-      
+
       if (filled === quantity) {
         status = "filled";
         break;
@@ -202,7 +206,8 @@ export class Orderbook {
         price,
         quantity,
         filled,
-        status: filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
+        status:
+          filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
         orderId: order_id,
         side: "sell",
         userID: user_id,
@@ -224,16 +229,16 @@ export class Orderbook {
     } else if (quantity !== filled && type === "market") {
       unsold_market_order_quanity = quantity - filled;
     }
-    
+
     // Purge matched bids
     this.bids = this.bids.filter((_, idx) => !bid_splice_indexes.includes(idx));
-    
-    return { 
-      order_id, 
-      fills, 
-      status: filled === 0 ? "open" : filled < quantity ? "partial" : "filled", 
-      filled, 
-      unsold_market_order_quanity 
+
+    return {
+      order_id,
+      fills,
+      status: filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
+      filled,
+      unsold_market_order_quanity,
     };
   };
 
@@ -306,7 +311,7 @@ export class Orderbook {
 
         this.bookWithQuantity.asks[o.price] =
           (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
-        
+
         const tradeId = generateTradeId();
         fills.push({
           price: o.price,
@@ -362,26 +367,32 @@ export class Orderbook {
       this.bookWithQuantity.bids[price] =
         (this.bookWithQuantity.bids[price] || 0) + quantity - filled;
     }
-    
+
     if (price !== 0 && type === "market") {
       unused_market_order_amount = price;
     }
-    
+
     // Purge matched asks
     this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
-    
-    return { 
-      order_id, 
-      fills, 
-      status: type === "limit" && filled === quantity ? "filled" : "partial", 
-      filled, 
-      unused_market_order_amount 
+
+    return {
+      order_id,
+      fills,
+      status: type === "limit" && filled === quantity ? "filled" : "partial",
+      filled,
+      unused_market_order_amount,
     };
   };
 
   placeOrder = (
     user_id: string,
-    order_data: { order_id?: any; price?: any; quantity?: any; side?: any; type?: any }
+    order_data: {
+      order_id?: any;
+      price?: any;
+      quantity?: any;
+      side?: any;
+      type?: any;
+    }
   ): EngineResponse<MatchResult> => {
     const { side, quantity, price, type } = order_data;
 
@@ -391,7 +402,7 @@ export class Orderbook {
         status: "FAILED",
         odb_status_code: 0,
         message: "Rejected: missing authorized user token context.",
-        data: null
+        data: null,
       };
     }
 
@@ -399,8 +410,9 @@ export class Orderbook {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message: "Rejected: Limit orders require execution price greater than zero.",
-        data: null
+        message:
+          "Rejected: Limit orders require execution price greater than zero.",
+        data: null,
       };
     }
 
@@ -409,7 +421,7 @@ export class Orderbook {
         status: "FAILED",
         odb_status_code: 0,
         message: "Rejected: execution quantity must be greater than zero.",
-        data: null
+        data: null,
       };
     }
 
@@ -423,7 +435,7 @@ export class Orderbook {
           status: "SUCCESS",
           odb_status_code: 1,
           message: "Sell order processed successfully",
-          data: result
+          data: result,
         };
       } else if (side === "buy") {
         const result = this.executeBuyOrder(user_id, order_data);
@@ -433,22 +445,24 @@ export class Orderbook {
           status: "SUCCESS",
           odb_status_code: 1,
           message: "Buy order processed successfully",
-          data: result
+          data: result,
         };
       } else {
         return {
           status: "FAILED",
           odb_status_code: 0,
           message: `Rejected: invalid trade side dimension '${side}'.`,
-          data: null
+          data: null,
         };
       }
     } catch (err: any) {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message: `Engine Match Error: ${err.message || "Execution exception occurred"}`,
-        data: null
+        message: `Engine Match Error: ${
+          err.message || "Execution exception occurred"
+        }`,
+        data: null,
       };
     }
   };
@@ -457,7 +471,11 @@ export class Orderbook {
     return { asks: this.asks, bids: this.bids };
   };
 
-  cancelOrder = (user_id: string, order_id: string, side: string): EngineResponse<Order> => {
+  cancelOrder = (
+    user_id: string,
+    order_id: string,
+    side: string
+  ): EngineResponse<Order> => {
     const normalizedSide = side.toLowerCase();
 
     const bookList = normalizedSide === "sell" ? this.asks : this.bids;
