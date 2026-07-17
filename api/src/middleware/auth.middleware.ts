@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, verifyRefreshToken } from "../utils/auth.utils.js";
-import { UserRepo } from "@exchange/db";
 import { JwtPayload } from "jsonwebtoken";
 
 declare module "express-serve-static-core" {
@@ -17,7 +16,7 @@ export const authMiddleware = async (
   try {
     let accessToken: string | undefined = undefined;
     const accessAuthHeader = req.headers.access_token as string;
-    console.log(accessAuthHeader, "accessAuthHeade------------r");
+
     if (accessAuthHeader && accessAuthHeader.startsWith("Bearer ")) {
       accessToken = accessAuthHeader.split(" ")[1];
     } else if (req.cookies?.access_token) {
@@ -30,7 +29,7 @@ export const authMiddleware = async (
     }
 
     const payload = verifyAccessToken(accessToken) as JwtPayload;
-    console.log(payload, "payload--------------------");
+
     if (!payload.user_id) {
       res.status(401).json({ message: "Unauthorized: invalid token payload" });
       return;

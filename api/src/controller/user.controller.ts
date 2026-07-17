@@ -237,4 +237,44 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { registerUser, updateBalance, fetchUserBalance };
+const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const redis = await RedisHandler.createInstance();
+
+    const engine_response = (await redis.sendAndAwait({
+      type: "MARKET",
+      market: {
+        action: "FETCH_ALL_ASSET",
+      },
+    })) as EngineResponse;
+    
+    console.log(engine_response, "engine_response");
+    if (engine_response.eng_status_code === 0) {
+      return res
+        .status(400)
+        .send(
+          generateErrorResponse(
+            engine_response.message,
+            engine_response.status,
+            engine_response.eng_status_code
+          )
+        );
+    }
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          engine_response.data,
+          engine_response.message,
+          engine_response.status,
+          1
+        )
+      );
+  } catch (error) {
+    console.error("Error in order/addBalance:", error);
+    return res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+export { registerUser, updateBalance, fetchUserBalance, fetchAllAssets };

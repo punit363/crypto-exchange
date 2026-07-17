@@ -4,13 +4,12 @@ import {
   placeOrder,
   cancelOrder,
 } from "../controller/order.controller";
-import { fetchUserBalance, registerUser, updateBalance } from "../controller/user.controller";
+import { fetchAllAssets, fetchUserBalance, registerUser, updateBalance } from "../controller/user.controller";
 import { fetchKline } from "../controller/kline.controller";
 import { fetchAllMarkets, fetchDepth, fetchTickerData } from "../controller/market.controller";
 import { getTrades } from "../controller/trade.controller";
 import { loginUser, logoutUser,refreshTokens } from "../controller/auth.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { ref } from "process";
 
 const router = express.Router();
 
@@ -30,6 +29,7 @@ router.get("/market/all", authMiddleware, fetchAllMarkets);
 router.post("/user", registerUser);
 router.post("/balance", authMiddleware, updateBalance);
 router.get("/balance", authMiddleware, fetchUserBalance);
+router.get("/asset", authMiddleware, fetchAllAssets);
 
 router.get("/trades", authMiddleware, getTrades);
 
