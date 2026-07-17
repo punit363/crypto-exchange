@@ -63,24 +63,22 @@ class WSManager {
         console.log("🟢 WS RECEIVED:", parsed);
 
         // 1. Check for 'trade' instead of just 'fills'
-        if (parsed.trade !== undefined || parsed.fills !== undefined) {
+        if (parsed.order !== undefined) {
+          const channel = `ORDER@${market}`;
+          const cbs = this.callbacks.get(channel) || [];
+          cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
+        } else if (parsed.trade !== undefined || parsed.fills !== undefined) {
           const channel = `TRADE@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
-        }
-
-        // 2. Check for 'book' instead of just 'book_with_quantity'
-        else if (
+        } else if (
           parsed.book !== undefined ||
           parsed.book_with_quantity !== undefined
         ) {
           const channel = `BOOK@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
-        }
-
-        // 3. Ticker
-        else if (parsed.ticker !== undefined) {
+        } else if (parsed.ticker !== undefined) {
           const channel = `TICKER@${market}`;
           const cbs = this.callbacks.get(channel) || [];
           cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
@@ -101,7 +99,10 @@ class WSManager {
     };
   }
 
-  private sendSubscribe(market: string, type: "TRADE" | "BOOK" | "TICKER") {
+  private sendSubscribe(
+    market: string,
+    type: "TRADE" | "BOOK" | "TICKER" | "ORDER"
+  ) {
     const message = { action: "SUBSCRIBE", type, market };
 
     // 3. Buffer the message if not ready yet!
@@ -113,7 +114,10 @@ class WSManager {
     this.ws.send(JSON.stringify(message));
   }
 
-  private sendUnsubscribe(market: string, type: "TRADE" | "BOOK" | "TICKER") {
+  private sendUnsubscribe(
+    market: string,
+    type: "TRADE" | "BOOK" | "TICKER" | "ORDER"
+  ) {
     const message = { action: "UNSUBSCRIBE", type, market };
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
@@ -122,7 +126,7 @@ class WSManager {
 
   public subscribe(
     market: string,
-    type: "TRADE" | "BOOK" | "TICKER",
+    type: "TRADE" | "BOOK" | "TICKER" | "ORDER",
     callback: Callback
   ) {
     const channel = `${type}@${market}`;
@@ -137,7 +141,7 @@ class WSManager {
 
   public unsubscribe(
     market: string,
-    type: "TRADE" | "BOOK" | "TICKER",
+    type: "TRADE" | "BOOK" | "TICKER" | "ORDER",
     callback: Callback
   ) {
     const channel = `${type}@${market}`;

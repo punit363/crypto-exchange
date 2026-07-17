@@ -38,6 +38,13 @@ wss.on("connection", (ws: any) => {
           ws.send(JSON.stringify(ticker_data));
         });
       }
+
+      if (data.type === "ORDER") {
+        console.log(`Subscribing to ORDER for ${market}`);
+        redis.subscribeToOrder(market, (order_data) => {
+          ws.send(JSON.stringify(order_data));
+        });
+      }
     }
   });
 });

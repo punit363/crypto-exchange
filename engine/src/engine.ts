@@ -57,7 +57,7 @@ const balance_arr: [string, UserBalance][] = [
   [
     "usr_7r6ej956isv",
     {
-      INR: {
+      USD: {
         available: 10000000000000,
         locked: 0,
       },
@@ -70,7 +70,7 @@ const balance_arr: [string, UserBalance][] = [
   [
     "usr_xslwr9hnet",
     {
-      INR: {
+      USD: {
         available: 20000000000000,
         locked: 0,
       },
@@ -389,7 +389,9 @@ class Engine {
           }
 
           const orderbook = this.orderbooks.find(
-            (o) => o.baseAsset === order.order_data.baseAsset
+            (o) =>
+              o.baseAsset === order.order_data.baseAsset &&
+              o.quoteAsset === order.order_data.quoteAsset
           );
 
           if (!orderbook) {
@@ -484,6 +486,30 @@ class Engine {
           console.log("4---------------------");
 
           const market = `${baseAsset}_${quoteAsset}`;
+          const order_publish_data = {
+            market,
+            order: {
+              order_id,
+              user_id: order.user_id,
+              side,
+              type,
+              quantity,
+              filled_quantity: filled,
+              price,
+              status,
+              base_asset: baseAsset,
+              quote_asset: quoteAsset,
+              created_at: new Date().toISOString()
+            },
+          };
+
+          redis.publishOrder(market, order_publish_data).catch((err) => {
+            console.error(
+              `[Error] Failed to publish order data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+              err.message
+            );
+          });
+
           const trade_publish_data = {
             market,
             trade: fills,
@@ -653,7 +679,9 @@ class Engine {
           }
 
           const orderbook = this.orderbooks.find(
-            (o) => o.baseAsset === baseAsset
+            (o) =>
+              o.baseAsset === order.order_data.baseAsset &&
+              o.quoteAsset === order.order_data.quoteAsset
           );
           console.log("====================", order.order_data);
 
@@ -662,7 +690,7 @@ class Engine {
           }
 
           const odb_response = orderbook.cancelOrder(user_id, order_id, side);
-
+          console.log("odb_response+++++++++++++++", odb_response);
           //update balance
           if (odb_response.data) {
             odb_response.data.status = "cancelled";
@@ -758,7 +786,7 @@ class Engine {
         }
         break;
       }
-      case "FETCH_OPEN_ORDERS": {
+      case "FETCH_ORDERS": {
         const redis = await RedisHandler.createInstance();
         try {
           const { baseAsset, quoteAsset } = order.order_data;
@@ -774,7 +802,9 @@ class Engine {
           }
 
           const orderbook = this.orderbooks.find(
-            (o) => o.baseAsset === baseAsset
+            (o) =>
+              o.baseAsset === order.order_data.baseAsset &&
+              o.quoteAsset === order.order_data.quoteAsset
           );
           console.log("====================fetch", order.order_data);
 
@@ -1038,7 +1068,7 @@ class Engine {
     const redis = await RedisHandler.createInstance();
     try {
       const user_id = user.user_id;
-      const asset = user.asset || "INR";
+      const asset = user.asset || SUPPORTED_MARKETS[0].base; // Default to the first supported base asset if not provided
       const amount = user.amount || 0;
       console.log(`User ${user_id}---------- added successfully.`);
 
@@ -1113,7 +1143,7 @@ class Engine {
 
   processMarketRequest = async (
     market: {
-      user_id: string;
+      user_id?: string;
       action: string;
     },
     engine_request_id: string
@@ -1140,7 +1170,7 @@ class Engine {
                 eng_status_code: 1,
                 status: "SUCCESS",
                 data: allMarkets,
-                message: "All market data successfully",
+                message: "All market data fetched successfully",
               },
               engine_request_id
             )
@@ -1171,6 +1201,60 @@ class Engine {
             .catch((err) => {
               console.error(
                 `[Error] Failed to send fetchAllMarkets crash response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
+        }
+        break;
+      }
+      case "FETCH_ALL_ASSET": {
+        const redis = await RedisHandler.createInstance();
+        try {
+          const allAssets = Array.from(
+            new Set(SUPPORTED_MARKETS.flatMap((m) => [m.base, m.quote]))
+          );
+
+          if (allAssets.length === 0) {
+            throw new Error("No asset data available");
+          }
+
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 1,
+                status: "SUCCESS",
+                data: allAssets,
+                message: "All asset data fetched successfully",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchAllAssets success response, engine_request_id: ${engine_request_id}, error:`,
+                err.message
+              );
+            });
+        } catch (error: any) {
+          console.error(
+            "Engine FETCH_ALL_ASSETS_ERROR Intercepted: ",
+            error.message
+          );
+
+          // OPTIMIZATION: Non-blocking error response fallback routing
+          redis
+            .sendApiResponse(
+              {
+                eng_status_code: 0,
+                status: "FAILED",
+                message:
+                  error.message ||
+                  "An unexpected error occurred during asset fetch.",
+              },
+              engine_request_id
+            )
+            .catch((err) => {
+              console.error(
+                `[Error] Failed to send fetchAllAssets crash response, engine_request_id: ${engine_request_id}, error:`,
                 err.message
               );
             });

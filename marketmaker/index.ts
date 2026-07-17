@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL = "http://localhost:8000/api/v1";
-const MARKET = "BTC_INR";
+const MARKET = "BTC_USD";
 const SCALE = 100_000_000;
 
 // User credentials (ensure this user is seeded in your DB)
@@ -40,8 +40,10 @@ async function runMarketMaker() {
   setInterval(async () => {
     try {
       const side = Math.random() > 0.5 ? "buy" : "sell";
-      const price = Math.floor((10000 + Math.random() * 1000) * SCALE);
-      const quantity = Math.floor(Math.random() * 0.5 * SCALE);
+      // const price = Math.floor((10000 + Math.random() * 1000) * SCALE);
+      // const quantity = Math.floor(Math.random() * 0.5 * SCALE);
+      const price = (10000 + Math.floor(Math.random() * 1000)) * SCALE;
+      const quantity = Math.floor(Math.random() * 100) * SCALE;
 
       console.log(
         `[BOT] Placing ${side} order: ${quantity / SCALE} BTC @ ${
@@ -56,7 +58,7 @@ async function runMarketMaker() {
           quantity,
           side,
           type: "limit",
-          baseAsset: "GRT",
+          baseAsset: "MATIC",
           quoteAsset: "ETH",
         },
         {
@@ -78,7 +80,7 @@ async function runMarketMaker() {
         await authenticate();
       }
     }
-  }, 1000);
+  }, 5000);
 }
 
 runMarketMaker();

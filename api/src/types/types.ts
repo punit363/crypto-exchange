@@ -45,7 +45,7 @@ type UserRequestToEngine = {
 
 type MarketRequestToEngine = {
   action: string;
-  user_id: string;
+  user_id?: string;
 };
 
 type EngineRequest = {

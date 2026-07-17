@@ -39,6 +39,11 @@ class RedisHandler {
     return order;
   };
 
+  publishOrder = (market: string, payload: any) => {
+    console.log("publishing order8888888888888888888", `ORDER:${market}`);
+    return this.publisher.publish(`ORDER:${market}`, JSON.stringify(payload));
+  };
+
   publishTrade = (market: string, payload: any) => {
     console.log("publishing trade9999999999999999999999999999", `TRADE:${market}`);
     return this.publisher.publish(`TRADE:${market}`, JSON.stringify(payload));
@@ -55,6 +60,7 @@ class RedisHandler {
   };
 
   setBookWithQuantity = (market: string, payload: any) => {
+    console.log("setting book with quantity1111111111111111111", `DEPTH:${market}`);
     return this.client.set(`DEPTH:${market}`, JSON.stringify(payload));
   };
 

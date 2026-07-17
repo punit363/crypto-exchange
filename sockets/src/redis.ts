@@ -21,6 +21,14 @@ class RedisHandler {
     return this.instance;
   };
 
+  subscribeToOrder = async (market: string, callback: (data: any) => void) => {
+    console.log(`Subscribing to ORDER for ${market}`);
+    await this.tradeSubscriber.subscribe(`ORDER:${market}`, (message) => {
+      console.log(message, "message order\n");
+      callback(JSON.parse(message));
+    });
+  };
+
   subscribeToTrade = async (market: string, callback: (data: any) => void) => {
     console.log(`Subscribing to TRADE for ${market}`);
     await this.tradeSubscriber.subscribe(`TRADE:${market}`, (message) => {
