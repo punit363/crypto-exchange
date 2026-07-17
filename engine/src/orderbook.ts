@@ -123,6 +123,10 @@ export class Orderbook {
         asks: this.bookWithQuantity.asks,
         currentPrice: this.currentPrice,
       };
+      console.log(
+        "Publishing book snapshot to Redis:00000000000000000000",
+        payload
+      );
       const redis = await RedisHandler.createInstance();
       redis.setBookWithQuantity(market, payload);
     } catch (error) {
@@ -259,7 +263,12 @@ export class Orderbook {
     const fills: Fills[] = [];
     let unused_market_order_amount: number | null = null;
     const ask_splice_indexes: number[] = [];
-
+    console.log("Executing buy order---------:", {
+      order_id,
+      price,
+      quantity,
+      type,
+    });
     for (const o of this.asks) {
       if (type === "market") {
         // SCALED INTEGER MATH: Price acts as Quote budget for buying BTC
@@ -277,7 +286,17 @@ export class Orderbook {
         }
         this.bookWithQuantity.asks[o.price] =
           (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
-
+        console.log("Filling buy order---------:", {
+          price: o.price,
+          quantity: fillQuantity,
+          userId: user_id,
+          otherUserId: o.userID,
+          orderId: order_id,
+          otherOrderId: o.orderId,
+          otherOrderFilled: o.filled,
+          otherOrderStatus: o.status,
+          bucketTime: this.getBucketTime(),
+        });
         const tradeId = generateTradeId();
         fills.push({
           price: o.price,
@@ -341,6 +360,7 @@ export class Orderbook {
       }
 
       if (type === "market" && price <= 0) {
+        console.log("Market order budget exhausted, breaking loop",price);
         break;
       }
     }
@@ -375,10 +395,25 @@ export class Orderbook {
     // Purge matched asks
     this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
 
+    if (type === "limit") {
+      if (filled === quantity) {
+        status = "filled";
+      } else {
+        status = "partial";
+      }
+    } else if (type === "market") {
+      console.log("Market order status check:", price);
+      if (price > 0) {
+        status = "partial";
+      } else {
+        status = "filled";
+      }
+    }
+
     return {
       order_id,
       fills,
-      status: type === "limit" && filled === quantity ? "filled" : "partial",
+      status,
       filled,
       unused_market_order_amount,
     };

@@ -59,20 +59,6 @@ export function Appbar() {
         {/* Global Navigation Hub */}
         <nav className="flex items-center gap-6 h-full text-xs font-semibold">
           <button
-            onClick={() => router.push("/trade/BTC_INR")}
-            className={`transition-all duration-200 h-full flex items-center border-b-2 relative ${
-              isTradeActive 
-                ? "text-white border-[#00C278]" 
-                : "text-slate-400 hover:text-white border-transparent"
-            }`}
-          >
-            Trade
-            {isTradeActive && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00C278] shadow-[0_0_12px_#00C278]" />
-            )}
-          </button>
-          
-          <button
             onClick={() => router.push("/")} // Maps back to landing spot list index
             className={`transition-all duration-200 h-full flex items-center border-b-2 relative ${
               isMarketsActive 

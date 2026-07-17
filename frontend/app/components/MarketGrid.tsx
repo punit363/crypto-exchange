@@ -27,7 +27,7 @@ export const MarketGrid = ({ markets }: { markets: any[] }) => {
 
     // Group markets by Quote Asset
     const grouped = useMemo(() => {
-        return markets.reduce((acc, m) => {
+        return markets.reduce((acc: Record<string, any[]>, m: any) => {
             const quote = m.quoteAsset || "Other";
             if (!acc[quote]) acc[quote] = [];
             acc[quote].push(m);

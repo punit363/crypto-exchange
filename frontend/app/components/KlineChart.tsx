@@ -21,18 +21,30 @@ export function KlineChart({ market }: { market: string }) {
     const now = new Date().getTime();
     switch (interval) {
       case "1m":
-        return now - 1000 * 60 * 60 * 24; // 1 day in milliseconds
+        return now - 1000 * 60 * 60 * 1; // 1 hr in milliseconds
       case "5m":
-        return now - 1000 * 60 * 60 * 24 * 3; // 3 days in milliseconds
+        return now - 1000 * 60 * 60 * 3; // 3 hr in milliseconds
       case "15m":
-        return now - 1000 * 60 * 60 * 24 * 7; // 7 days in milliseconds
+        return now - 1000 * 60 * 60 * 24; // 7 days in milliseconds
       case "1h":
-        return now - 1000 * 60 * 60 * 24 * 30; // 30 days in milliseconds
+        return now - 1000 * 60 * 60 * 24 * 3; // 30 days in milliseconds
       case "1d":
-        return now - 1000 * 60 * 60 * 24 * 365; // 1 year in milliseconds
+        return now - 1000 * 60 * 60 * 24 * 150; // 1 year in milliseconds
       default:
-        return now - 1000 * 60 * 60 * 24 * 7;
+        return now - 1000 * 60 * 60 * 1;
     }
+  };
+
+  const handleScrollLeft = () => {
+    const chart = chartManagerRef.current;
+    if (!chart) return;
+    chart.scrollLeft(20); // move back 20 bars
+  };
+
+  const handleScrollRight = () => {
+    const chart = chartManagerRef.current;
+    if (!chart) return;
+    chart.scrollRight(20); // move forward 20 bars
   };
 
   useEffect(() => {
@@ -96,7 +108,7 @@ export function KlineChart({ market }: { market: string }) {
           timeScale: {
             timeVisible: activeInterval !== "1d", // Show time (HH:MM) for intraday data, hide for daily
             secondsVisible: false,
-          }
+          },
         };
 
         const chartManager = new ChartManager(
@@ -108,13 +120,14 @@ export function KlineChart({ market }: { market: string }) {
 
         // DEFENSTIVE WRAPPER: If ChartManager exposes the underlying chart instance,
         // we apply options explicitly on the fly to force-update the timescale ticks.
-        const rawChart = (chartManager as any).chart || (chartManager as any)._chart;
+        const rawChart =
+          (chartManager as any).chart || (chartManager as any)._chart;
         if (rawChart && typeof rawChart.applyOptions === "function") {
           rawChart.applyOptions({
             timeScale: {
               timeVisible: activeInterval !== "1d",
               secondsVisible: false,
-            }
+            },
           });
         }
 
@@ -178,6 +191,24 @@ export function KlineChart({ market }: { market: string }) {
               {interval}
             </button>
           ))}
+          {/* divider */}
+          <div className="w-px bg-slate-700 mx-1" />
+
+          {/* scroll buttons */}
+          <button
+            onClick={handleScrollLeft}
+            title="Scroll left"
+            className="px-3 py-1 text-xs rounded text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors"
+          >
+            ←
+          </button>
+          <button
+            onClick={handleScrollRight}
+            title="Scroll right"
+            className="px-3 py-1 text-xs rounded text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors"
+          >
+            →
+          </button>
         </div>
 
         <div className="flex items-center text-slate-500 hover:text-white cursor-pointer px-2">

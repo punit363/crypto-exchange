@@ -78,6 +78,16 @@ export class ChartManager {
       this.lastUpdateTime = last.time * 1000;
     }
   }
+  
+  public scrollLeft(bars: number = 20) {
+    const currentPosition = this.chart.timeScale().scrollPosition();
+    this.chart.timeScale().scrollToPosition(currentPosition - bars, true);
+  }
+  
+  public scrollRight(bars: number = 20) {
+    const currentPosition = this.chart.timeScale().scrollPosition();
+    this.chart.timeScale().scrollToPosition(currentPosition + bars, true);
+  }
 
   // Helper to convert frontend string to milliseconds
   private getIntervalMs(interval: string): number {

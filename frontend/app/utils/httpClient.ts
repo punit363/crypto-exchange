@@ -283,13 +283,13 @@ export async function getTicker(market: string) {
 }
 
 export async function getUserOrders(
-  userId: string,
   market: string,
   type: "open" | "history"
 ) {
   const response = await apiClient.get(
-    `/order?userId=${userId}&market=${market}&type=${type}`
+    `/order?market=${market}&type=${type}`
   );
+  console.log("User Orders Response:--------", response.data);
   return handleResponse(response.data);
 }
 
@@ -304,7 +304,9 @@ export async function getTrades(market: string): Promise<any[]> {
 }
 
 export async function getDepth(market: string): Promise<any> {
-  const response = await apiClient.get(`/depth?symbol=${market}`);
+  console.log("Fetching depth for market:", market);
+  const response = await apiClient.get(`/depth?market=${market}`);
+  console.log("Depth response:", response.data);
   return handleResponse(response.data);
 }
 
@@ -346,5 +348,23 @@ export async function updateUserBalance(payload: {
   type: "deposit" | "withdraw" | string;
 }): Promise<any> {
   const response = await apiClient.post("/balance", payload);
+  return response.data;
+}
+
+export async function getAssets(): Promise<string[]> {
+  const response = await apiClient.get("/asset");
+  // Adjust based on your API response wrapper (e.g., response.data.data or response.data)
+  return response.data.data || response.data;
+}
+export async function cancelOrder(orderId: string, side: string, baseAsset: string, quoteAsset: string) {
+  const response = await apiClient.delete("/order", {
+    data: {
+      order_id: orderId,
+      side: side,
+      base_asset: baseAsset,
+      quote_asset: quoteAsset
+    }
+  });
+  console.log("Cancel Order Response:--------", response.data);
   return response.data;
 }

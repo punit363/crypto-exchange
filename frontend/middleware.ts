@@ -5,85 +5,71 @@ const PUBLIC_ROUTES = ["/login", "/register", "/"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  console.log("Middleware triggered for path:", pathname);
-  // 1. Allow public routes through immediately
+
+  // 1. HARD SAFETY: Explicitly ignore static assets to prevent redirect loops
+  if (
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/api/") ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Allow public routes through
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 
   const accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
-  console.log("Access Token:", accessToken);
-  console.log("Refresh Token:", refreshToken);
-  // 2. No session credentials found -> Redirect cleanly to login gate
+
+  // 3. No session credentials found -> Redirect to login
   if (!accessToken && !refreshToken) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 3. Access Token expired but Refresh Token exists -> Execute silent server-side rotation
+  // 4. Access Token expired but Refresh Token exists -> Silent rotation
   if (!accessToken && refreshToken) {
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
       const res = await fetch(`${API_URL}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       });
-      // If rotation fails (revoked/expired refresh token) -> Clear session cookies and redirect
+
       if (!res.ok) {
-        const errorResponse = NextResponse.redirect(
-          new URL("/login", request.url)
-        );
+        const errorResponse = NextResponse.redirect(new URL("/login", request.url));
         errorResponse.cookies.delete("access_token");
         errorResponse.cookies.delete("refresh_token");
         return errorResponse;
       }
 
       const body = await res.json();
-      console.log("Token rotation response status:", body);
-
       const payload = body.data || body;
-
-      // Support both camelCase and snake_case properties returned by the API
       const newAccessToken = payload.accessToken || payload.access_token;
       const newRefreshToken = payload.refreshToken || payload.refresh_token;
 
-      if (!newAccessToken || !newRefreshToken) {
-        throw new Error(
-          "Invalid token contract structure returned during rotation."
-        );
-      }
-      console.log("New Access Token:", newAccessToken);
-      console.log("New Refresh Token:", newRefreshToken);
-      // Sync the request cookies so downstream React Server Components read the active tokens immediately
-      request.cookies.set("access_token", newAccessToken);
-      request.cookies.set("refresh_token", newRefreshToken);
+      if (!newAccessToken || !newRefreshToken) throw new Error("Invalid token structure");
 
-      const response = NextResponse.next({
-        request: {
-          headers: request.headers,
-        },
-      });
+      const response = NextResponse.next();
 
-      const isProduction = process.env.NODE_ENV === "production";
-
-      // Write the new access token cookie (Set to 24 Hours to prevent Axios client-side early deletion)
+      // FIXED: maxAge was 60 (seconds), now 86400 (24 hours)
       response.cookies.set("access_token", newAccessToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 60, // 24 Hours (1 Day)
+        maxAge: 60 * 60 * 24, 
         path: "/",
       });
 
-      // Write the rotated refresh token cookie (Slides the 7-Day sliding window forward!)
       response.cookies.set("refresh_token", newRefreshToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7, // 7 Days
+        maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
 
@@ -101,6 +87,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // EXCLUDE /icons/ and other static files here!
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icons/).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icons/.*).*)"],
 };
