@@ -59,16 +59,36 @@ const fetchDepth = async (req: Request, res: Response): Promise<any> => {
     }
 
     const redisHandler = await RedisHandler.createInstance();
-
+ 
     // 1. Fetch O(1) snapshot directly from Redis RAM
-    const snapshotString = await redisHandler.get(`DEPTH:${market}`);
+    console.log("Publishing book snapshot to Redis:00000000000000000000", `DEPTH:${market}`);
+    const market_depth = await redisHandler.get(`DEPTH:${market}`);
+    const depth = JSON.parse(market_depth||"{}");
+    console.log(depth, "depth");
+    console.log(market_depth, "snapshotString");
 
-    if (snapshotString) {
-      // 2. Parse and return to the frontend
-      res.json(JSON.parse(snapshotString));
+    if (market_depth) {
+      return res
+        .status(200)
+        .send(
+          generateAPIResponse(
+            depth,
+            "Market depth fetched successfully",
+            "SUCCESS",
+            1
+          )
+        );
     } else {
       // Safe fallback if the engine just booted up and the book is completely empty
-      res.json({ bids: {}, asks: {} });
+      return res
+        .status(404)
+        .send(
+          generateErrorResponse(
+            "Market depth not found for this market",
+            "FAILED",
+            0
+          )
+        );
     }
   } catch (error) {
     console.error("Failed to fetch depth from Redis:", error);
@@ -131,4 +151,4 @@ const fetchAllMarkets = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export { fetchTickerData, fetchDepth,fetchAllMarkets };
+export { fetchTickerData, fetchDepth, fetchAllMarkets };
