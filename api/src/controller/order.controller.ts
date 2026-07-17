@@ -3,21 +3,23 @@ import RedisHandler from "../redis";
 import { generateOrderId } from "../utils";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { EngineResponse } from "../types/types";
+import { OrderRepo } from "@exchange/db";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
     const { price, quantity, side, type, baseAsset, quoteAsset } = req.body;
-    console.log(req.user_id, "user_id--------------------");
+    console.log(
+      req.user_id,
+      price,
+      quantity,
+      side,
+      type,
+      baseAsset,
+      quoteAsset,
+      "user_id--------------------"
+    );
     const user_id = req.user_id as string;
-    if (
-      !user_id ||
-      !price ||
-      !quantity ||
-      !side ||
-      !type ||
-      !baseAsset ||
-      !quoteAsset
-    ) {
+    if (!user_id || !side || !type || !baseAsset || !quoteAsset) {
       return res
         .status(400)
         .send(
@@ -107,40 +109,21 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
         );
     }
 
-    const [baseAsset, quoteAsset] = market.split("_");
+    const order_history = await OrderRepo.getUserOrders(user_id, market, type);
 
-    const redis = await RedisHandler.createInstance();
-    const engine_response = (await redis.sendAndAwait({
-      type: "ORDER",
-      order: {
-        action: "FETCH_OPEN_ORDERS",
-        user_id,
-        order_data: {
-          baseAsset,
-          quoteAsset,
-        },
-      },
-    })) as EngineResponse;
-
-    if (!engine_response.data || engine_response.data.length <= 0) {
+    if (order_history.length <= 0) {
       return res
         .status(404)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            0
-          )
-        );
+        .send(generateErrorResponse("No orders found", "FAILED", 0));
     }
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
+          order_history,
+          "Orders fetched successfully",
+          "SUCCESS",
           1
         )
       );
