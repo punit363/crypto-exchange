@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL = "http://localhost:8000/api/v1";
-const MARKET = "BTC_USD";
+const MARKET = "BTC_USDT";
 const SCALE = 100_000_000;
 
 // User credentials (ensure this user is seeded in your DB)
@@ -58,8 +58,8 @@ async function runMarketMaker() {
           quantity,
           side,
           type: "limit",
-          baseAsset: "MATIC",
-          quoteAsset: "ETH",
+          baseAsset: "BTC",
+          quoteAsset: "USDT",
         },
         {
           headers: {
@@ -80,7 +80,7 @@ async function runMarketMaker() {
         await authenticate();
       }
     }
-  }, 5000);
+  }, 100);
 }
 
 runMarketMaker();
