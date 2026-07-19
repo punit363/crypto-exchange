@@ -32,7 +32,8 @@ export async function middleware(request: NextRequest) {
   // 4. Access Token expired but Refresh Token exists -> Silent rotation
   if (!accessToken && refreshToken) {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
       const res = await fetch(`${API_URL}/auth/refresh`, {
         method: "POST",
@@ -41,7 +42,9 @@ export async function middleware(request: NextRequest) {
       });
 
       if (!res.ok) {
-        const errorResponse = NextResponse.redirect(new URL("/login", request.url));
+        const errorResponse = NextResponse.redirect(
+          new URL("/login", request.url)
+        );
         errorResponse.cookies.delete("access_token");
         errorResponse.cookies.delete("refresh_token");
         return errorResponse;
@@ -52,7 +55,8 @@ export async function middleware(request: NextRequest) {
       const newAccessToken = payload.accessToken || payload.access_token;
       const newRefreshToken = payload.refreshToken || payload.refresh_token;
 
-      if (!newAccessToken || !newRefreshToken) throw new Error("Invalid token structure");
+      if (!newAccessToken || !newRefreshToken)
+        throw new Error("Invalid token structure");
 
       const response = NextResponse.next();
 
@@ -61,7 +65,7 @@ export async function middleware(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 60 * 60 * 24, 
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
 
@@ -69,7 +73,7 @@ export async function middleware(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
 

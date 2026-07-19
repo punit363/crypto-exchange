@@ -135,7 +135,7 @@ apiClient.interceptors.response.use(
               localStorage.setItem("refresh_token", newRefreshToken);
 
               // 2. Sync values back into Browser Cookies (24H container and 7D slider)
-              setCookie("access_token", newAccessToken, 30); // 24 Hours (Matches 1d Token)
+              setCookie("access_token", newAccessToken, 60 * 60 * 24 * 7); // 24 Hours (Matches 1d Token)
               setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7); // 7 Days
 
               // 3. Update active headers
@@ -222,7 +222,7 @@ export async function login(payload: {
     );
 
     // FIX: Set browser cookie Max-Age to 24 Hours (86400 seconds) to match the 1d JWT lifetime!
-    setCookie("access_token", data.access_token, 30);
+    setCookie("access_token", data.access_token, 60 * 60 * 24 * 7);
     setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
     window.dispatchEvent(new Event("auth_change"));

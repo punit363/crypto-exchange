@@ -58,7 +58,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 30, // 15 mins (JWT lifetime)
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 15 mins (JWT lifetime)
       path: "/",
     });
 
@@ -149,7 +149,6 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
 
       const dbUser = await UserRepo.fetchRefreshToken(refreshToken);
 
-    
       if (!dbUser || dbUser.refresh_token !== refreshToken) {
         console.warn(
           `[SECURITY ALARM] Replay attack detected for UID: ${refreshPayload.user_id}. Revoking family.`
@@ -179,7 +178,7 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge: 15 * 60 * 1000, 
+        maxAge:  7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
 
@@ -187,7 +186,7 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, 
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
       console.log(
