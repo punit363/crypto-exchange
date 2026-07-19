@@ -4,8 +4,6 @@ import dotenv from "dotenv";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
-
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -19,15 +17,13 @@ if (!connectionString) {
 
 export async function verifyConnection() {
   try {
-    console.log("⏳ Attempting to connect to the database...");
-    
     await prisma.$queryRaw`SELECT 1`;
-    
+
     console.log("✅ Database connection successful!");
   } catch (error) {
     console.error("❌ Database connection failed.");
     console.error(error);
-    process.exit(1); 
+    process.exit(1);
   }
 }
 

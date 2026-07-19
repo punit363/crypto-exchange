@@ -98,7 +98,6 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
     const { amount, asset, type } = req.body;
     const user_id = req.user_id;
 
-    console.log(amount, asset, type, user_id, "amount, asset, type ,user_id");
     if (!user_id || !amount || !asset || !type) {
       return res
         .status(400)
@@ -198,7 +197,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
           )
         );
     }
-    console.log(user_id, "user_id");
+
     const redis = await RedisHandler.createInstance();
 
     const engine_response = (await redis.sendAndAwait({
@@ -208,7 +207,6 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
         user_id,
       },
     })) as EngineResponse;
-    console.log(engine_response, "engine_response");
     if (engine_response.eng_status_code === 0) {
       return res
         .status(400)
@@ -247,8 +245,7 @@ const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
         action: "FETCH_ALL_ASSET",
       },
     })) as EngineResponse;
-    
-    console.log(engine_response, "engine_response");
+
     if (engine_response.eng_status_code === 0) {
       return res
         .status(400)

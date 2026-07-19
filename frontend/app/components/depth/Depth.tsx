@@ -43,7 +43,6 @@ export function Depth({ market }: { market: string }) {
     // 2. Real-time WebSocket handlers
     const handleBookUpdate = (data: any) => {
       if (!isMounted) return;
-      console.log("[WS BOOK UPDATE] Received dynamic depth update:", data);
 
       // Extract bids and asks defensively, checking both flat and nested properties
       const rawBids = data.bids || data.book?.bids || data.data?.bids;
@@ -70,7 +69,6 @@ export function Depth({ market }: { market: string }) {
 
     const handleTradeUpdate = (fills: any) => {
       if (!isMounted) return;
-      console.log("[WS TRADE UPDATE] Received matches:", fills);
       // Handles both array of fills and standard objects
       const fillList = Array.isArray(fills) ? fills : (fills.trade || fills.data || []);
       if (Array.isArray(fillList) && fillList.length > 0 && fillList[0].price) {

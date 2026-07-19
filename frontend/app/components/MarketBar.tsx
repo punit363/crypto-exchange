@@ -60,7 +60,6 @@ export const MarketBar = ({ market }: { market: string }) => {
     const handleTickerUpdate = (data: any) => {
       if (!isMounted || !data) return;
 
-      console.log("[MARKETBAR WS] Received ticker packet:", data);
       const incomingNormalized = normalizeTickerData(data);
 
       if (incomingNormalized) {

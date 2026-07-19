@@ -22,25 +22,19 @@ class RedisHandler {
   };
 
   subscribeToOrder = async (market: string, callback: (data: any) => void) => {
-    console.log(`Subscribing to ORDER for ${market}`);
     await this.tradeSubscriber.subscribe(`ORDER:${market}`, (message) => {
-      console.log(message, "message order\n");
       callback(JSON.parse(message));
     });
   };
 
   subscribeToTrade = async (market: string, callback: (data: any) => void) => {
-    console.log(`Subscribing to TRADE for ${market}`);
     await this.tradeSubscriber.subscribe(`TRADE:${market}`, (message) => {
-      console.log(message, "message trade\n");
       callback(JSON.parse(message));
     });
   };
 
   subscribeToTicker = async (market: string, callback: (data: any) => void) => {
-    console.log(`Subscribing to TICKER for ${market}`);
     await this.tradeSubscriber.subscribe(`TICKER:${market}`, (message) => {
-      console.log(message, "message ticker\n");
       callback(JSON.parse(message));
     });
   };
@@ -49,9 +43,7 @@ class RedisHandler {
     market: string,
     callback: (data: any) => void
   ) => {
-    console.log(`Subscribing to BOOK for ${market}`);
     await this.orderbookSubscriber.subscribe(`BOOK:${market}`, (message) => {
-      console.log(message, "message book\n");
       callback(JSON.parse(message));
     });
   };

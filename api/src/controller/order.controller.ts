@@ -8,16 +8,7 @@ import { OrderRepo } from "@exchange/db";
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
     const { price, quantity, side, type, baseAsset, quoteAsset } = req.body;
-    console.log(
-      req.user_id,
-      price,
-      quantity,
-      side,
-      type,
-      baseAsset,
-      quoteAsset,
-      "user_id--------------------"
-    );
+
     const user_id = req.user_id as string;
     if (!user_id || !side || !type || !baseAsset || !quoteAsset) {
       return res

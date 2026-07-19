@@ -41,11 +41,9 @@ class RedisHandler {
       ...data,
     };
     await this.client.lPush("message", JSON.stringify(engine_data));
-    console.log(engine_data, "engine_data------------\n");
     return new Promise((resolve, reject) => {
       this.subscriber.subscribe(engineRequestId, async (message) => {
         try {
-          console.log(message, "message----------------\n");
           await this.subscriber.unsubscribe(engineRequestId);
           resolve(JSON.parse(message));
         } catch (err) {

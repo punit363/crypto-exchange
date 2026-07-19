@@ -57,15 +57,8 @@ export function KlineChart({ market }: { market: string }) {
       const endTime = Math.floor(new Date().getTime() / 1000);
       const startTime = Math.floor(getLookbackWindow(activeInterval) / 1000);
 
-      console.log(
-        `[KLINE FETCH] Querying ${activeInterval} for ${market}. Start: ${startTime}, End: ${endTime}`
-      );
       try {
         klineData = await getKlines(market, activeInterval, startTime, endTime);
-        console.log(
-          "[KLINE FETCH] Successfully retrieved candles count:",
-          klineData?.length
-        );
       } catch (e) {
         console.error("Failed to fetch klines", e);
       }
@@ -94,10 +87,6 @@ export function KlineChart({ market }: { market: string }) {
           })
           .sort((x, y) => x.timestamp.getTime() - y.timestamp.getTime());
 
-        console.log(
-          "[KLINE RENDER] Initializing chart with sorted candles:",
-          formattedKlines
-        );
 
         /* STREAMING_CHUNK: Instantiating dynamic timescale constraints... */
         // Configuration options passed directly to ChartManager constructor
@@ -141,7 +130,6 @@ export function KlineChart({ market }: { market: string }) {
     // WS Trade subscriber (Live updates)
     const handleTradeUpdate = (data: any) => {
       if (!isMounted || !chartManagerRef.current) return;
-      console.log("[KLINE WS] Received raw trade transaction update:", data);
 
       // Extract raw fill arrays defensively
       const fillList = Array.isArray(data)
@@ -152,9 +140,6 @@ export function KlineChart({ market }: { market: string }) {
         const latestPrice = Number(fillList[0].price) / SCALE;
         const tradeTime = fillList[0].bucketTime || Date.now();
 
-        console.log(
-          `[KLINE LIVE UPDATE] Pushing price level: ${latestPrice} @ time: ${tradeTime}`
-        );
 
         // Feed the live price update directly into the active charting engine
         chartManagerRef.current.updateLivePrice(latestPrice, tradeTime);

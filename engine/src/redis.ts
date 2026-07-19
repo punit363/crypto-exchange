@@ -22,7 +22,6 @@ class RedisHandler {
   };
 
   sendApiResponse = async (engine_response: any, engine_request_id: string) => {
-    console.log("resp sent------------", engine_response);
     await this.publisher.publish(
       engine_request_id,
       JSON.stringify(engine_response)
@@ -40,27 +39,22 @@ class RedisHandler {
   };
 
   publishOrder = (market: string, payload: any) => {
-    console.log("publishing order8888888888888888888", `ORDER:${market}`);
     return this.publisher.publish(`ORDER:${market}`, JSON.stringify(payload));
   };
 
   publishTrade = (market: string, payload: any) => {
-    console.log("publishing trade9999999999999999999999999999", `TRADE:${market}`);
     return this.publisher.publish(`TRADE:${market}`, JSON.stringify(payload));
   };
 
   publishTicker = (market: string, payload: any) => {
-    console.log("publishing ticker999999999999999999999999999", `TICKER:${market}`);
     return this.publisher.publish(`TICKER:${market}`, JSON.stringify(payload));
   };
 
   publishOrderBookWithQuantity = (market: string, payload: any) => {
-    console.log("publishing book999999999999999999999999999", `BOOK:${market}`);
     return this.publisher.publish(`BOOK:${market}`, JSON.stringify(payload));
   };
 
   setBookWithQuantity = (market: string, payload: any) => {
-    console.log("setting book with quantity1111111111111111111", `DEPTH:${market}`);
     return this.client.set(`DEPTH:${market}`, JSON.stringify(payload));
   };
 
@@ -84,9 +78,6 @@ class RedisHandler {
       const result = await this.client.zRange(key, 0, -1);
 
       const trade_arr = result.map((item) => JSON.parse(item));
-      console.log(
-        `[TICKER CALCULATION] Found ${trade_arr.length} active trades in 24H window.`
-      );
 
       let low = Infinity;
       let high = 0;
@@ -112,8 +103,6 @@ class RedisHandler {
           lastPrice: String(close),
         },
       };
-
-      console.log("Ticker data generated:", ticker_details);
 
       await this.publishTicker(market, ticker_details);
     } catch (err: any) {

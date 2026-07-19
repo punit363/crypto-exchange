@@ -61,11 +61,8 @@ const fetchDepth = async (req: Request, res: Response): Promise<any> => {
     const redisHandler = await RedisHandler.createInstance();
  
     // 1. Fetch O(1) snapshot directly from Redis RAM
-    console.log("Publishing book snapshot to Redis:00000000000000000000", `DEPTH:${market}`);
     const market_depth = await redisHandler.get(`DEPTH:${market}`);
     const depth = JSON.parse(market_depth||"{}");
-    console.log(depth, "depth");
-    console.log(market_depth, "snapshotString");
 
     if (market_depth) {
       return res

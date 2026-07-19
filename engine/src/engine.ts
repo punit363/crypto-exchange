@@ -251,7 +251,6 @@ const addCandlesToDB = async (
 ) => {
   const market = `${baseAsset}_${quoteAsset}`;
   let currentCandle = activeCandles.get(market);
-  console.log(currentCandle, "currentCandle---------");
   for (const fill of fills) {
     if (!currentCandle || currentCandle.bucket_time < fill.bucketTime) {
       if (currentCandle) {
@@ -300,7 +299,6 @@ type Transaction = {
 };
 
 const addTransactionInDB = async (transaction: Transaction) => {
-  console.log("send to db============", transaction);
   const redis = await RedisHandler.createInstance();
   await redis.sendToDB({
     action: "ADD_TRANSACTION",
@@ -398,8 +396,6 @@ class Engine {
             throw new Error("No orderbook found");
           }
 
-          console.log("step------------=========", order.order_data);
-
           checkAndLockBalance(
             order.user_id,
             quantity,
@@ -408,8 +404,6 @@ class Engine {
             quoteAsset,
             baseAsset
           );
-
-          console.log("0---------------------");
 
           const {
             status: orderStatus,
@@ -447,17 +441,12 @@ class Engine {
             unused_market_order_amount = null,
           } = data;
 
-          console.log("1---------------------");
-
           settleBalanceAfterTrade(
             fills,
             order.order_data.side,
             order.order_data.quoteAsset,
             order.order_data.baseAsset
           );
-
-          console.log("2---------------------");
-          console.log("3---------------------");
 
           const response = {
             order_id,
@@ -482,8 +471,6 @@ class Engine {
                 err.message
               );
             });
-
-          console.log("4---------------------");
 
           const market = `${baseAsset}_${quoteAsset}`;
           const order_publish_data = {
@@ -522,8 +509,6 @@ class Engine {
             );
           });
 
-          console.log("5---------------------");
-
           const book_with_quantity_publish_data = {
             market,
             book: orderbook.getBookWithQuantity(),
@@ -541,11 +526,7 @@ class Engine {
               );
             });
 
-          console.log("6---------------------");
-
           orderbook.publishSnapshot();
-
-          console.log("7---------------------");
 
           redis
             .sendToDB({
@@ -570,8 +551,6 @@ class Engine {
               );
             });
 
-          console.log("8---------------------");
-
           if (fills.length > 0) {
             for (const fill of fills) {
               const ticker_trade = {
@@ -580,7 +559,6 @@ class Engine {
                 quantity: fill.quantity,
                 trade_id: fill.tradeId,
               };
-              console.log("ticker_trade++++++++++++", ticker_trade);
               await redis.saveTickerData(
                 `${baseAsset}_${quoteAsset}`,
                 ticker_trade
@@ -588,8 +566,6 @@ class Engine {
             }
 
             addCandlesToDB(fills, baseAsset, quoteAsset);
-
-            console.log("9---------------------");
 
             const trades = fills.map((fill) => ({
               trade_id: fill.tradeId,
@@ -633,8 +609,6 @@ class Engine {
                   err.message
                 );
               });
-
-            console.log("10---------------------");
           }
         } catch (error: any) {
           console.error(
@@ -683,14 +657,12 @@ class Engine {
               o.baseAsset === order.order_data.baseAsset &&
               o.quoteAsset === order.order_data.quoteAsset
           );
-          console.log("====================", order.order_data);
 
           if (!orderbook) {
             throw new Error(`No orderbook found for base asset: ${baseAsset}`);
           }
 
           const odb_response = orderbook.cancelOrder(user_id, order_id, side);
-          console.log("odb_response+++++++++++++++", odb_response);
           //update balance
           if (odb_response.data) {
             odb_response.data.status = "cancelled";
@@ -710,7 +682,6 @@ class Engine {
               status: odb_response.data.status,
             };
 
-            console.log("cancel data", cancel_order);
             redis
               .sendToDB({
                 action: "CANCEL_ORDER",
@@ -758,7 +729,6 @@ class Engine {
                 );
               });
           }
-          console.log("====================", odb_response);
         } catch (error: any) {
           console.error(
             `Engine CANCEL_ORDER_ERROR Intercepted, engine_request_id: ${engine_request_id}, error:`,
@@ -806,7 +776,6 @@ class Engine {
               o.baseAsset === order.order_data.baseAsset &&
               o.quoteAsset === order.order_data.quoteAsset
           );
-          console.log("====================fetch", order.order_data);
 
           if (!orderbook) {
             throw new Error("No orderbook found");
@@ -830,8 +799,6 @@ class Engine {
                 err.message
               );
             });
-
-          console.log("====================fetch", response);
         } catch (error: any) {
           console.error(
             "Engine FETCH_OPEN_ORDERS_ERROR Intercepted: ",
@@ -899,15 +866,8 @@ class Engine {
             user_balance[asset] = { available: 0, locked: 0 };
           }
 
-          console.log("transaction started-------------", transaction);
-          console.log("user balance found-------------", user_balance);
-
           if (type === "deposit") {
             user_balance[asset].available += amount;
-            console.log(
-              "deosit started-------------",
-              user_balance[asset].available
-            );
 
             addTransactionInDB({
               tx_id,
@@ -940,21 +900,13 @@ class Engine {
                 err.message
               );
             });
-
-            console.log(
-              "withdrawal started-------------",
-              user_balance[asset].available
-            );
           } else {
             throw new Error(
               "Invalid transaction type or user balance does not exist"
             );
           }
           balance.set(user_id, user_balance);
-          console.log("return===========", {
-            current_balance: user_balance,
-          });
-
+       
           // OPTIMIZATION: Non-blocking asynchronous transmission of balance update response
           redis
             .sendApiResponse(
@@ -1070,7 +1022,6 @@ class Engine {
       const user_id = user.user_id;
       const asset = user.asset || SUPPORTED_MARKETS[0].base; // Default to the first supported base asset if not provided
       const amount = user.amount || 0;
-      console.log(`User ${user_id}---------- added successfully.`);
 
       if (!user_id) {
         throw new Error("User ID is required to add a user.");
@@ -1091,7 +1042,6 @@ class Engine {
           `User ${user_id} already exists in the balance ledger.`
         );
       }
-      console.log(`User balance -------- ${user_balance}---------`);
 
       balance.set(user_id, {
         [asset]: {

@@ -20,7 +20,6 @@ const dbMain = async () => {
   const redis = await RedisHandler.createInstance();
   while (true) {
     const response = await redis.getTradeDetail();
-    console.log("response-data----------------------", response);
 
     if (response) {
       const db_data: {
@@ -34,7 +33,6 @@ const dbMain = async () => {
         user?: User;
         candle?: Candle;
       } = JSON.parse(response.element);
-      console.log("action-data----------------------", db_data.action);
 
       switch (db_data.action) {
         case "ADD_ORDER": {
@@ -59,9 +57,7 @@ const dbMain = async () => {
         }
         case "CANCEL_ORDER": {
           const cancel_order = db_data.cancel_order;
-          console.log("cancel_order------- data", cancel_order);
           if (cancel_order) {
-            console.log("cancel_____________order------- data", cancel_order);
             await OrderRepo.cancelOrder(cancel_order);
           } else {
             throw Error("Order Update Data not Found");
@@ -155,9 +151,7 @@ const dbMain = async () => {
         }
         case "ADD_CANDLE": {
           const candle_data = db_data.candle;
-          console.log("candle-data----------------------", candle_data);
           if (candle_data) {
-            console.log("candle-data----------------------2", candle_data);
             await CandleRepo.create(candle_data);
           } else {
             throw Error("Trade Data not Found");
@@ -166,21 +160,17 @@ const dbMain = async () => {
         }
         case "ADD_TRANSACTION": {
           const transaction_data = db_data.transaction;
-          console.log(
-            "transaction-data----------------------",
-            transaction_data
-          );
+
           if (transaction_data) {
-            console.log(
-              "transaction-data----------------------2",
-              transaction_data
-            );
             await TransactionRepo.create(transaction_data);
             await BalanceLedgerRepo.create({
               id: generateBalanceLedgerId(),
               user_id: transaction_data.user_id,
               asset: transaction_data.asset,
-              amount: transaction_data.type === "deposit" ? transaction_data.amount : -transaction_data.amount,
+              amount:
+                transaction_data.type === "deposit"
+                  ? transaction_data.amount
+                  : -transaction_data.amount,
               type: "transaction",
               ref_id: transaction_data.tx_id,
             });

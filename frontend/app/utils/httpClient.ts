@@ -109,10 +109,6 @@ apiClient.interceptors.response.use(
           return reject(error);
         }
 
-        console.log(
-          "[AXIOS HANDSHAKE] Access token expired. Initiating atomic rotation..."
-        );
-
         // Trigger a single, unified POST /auth/refresh request to the API Gateway
         apiClient
           .post("/auth/refresh", { refreshToken })
@@ -126,10 +122,6 @@ apiClient.interceptors.response.use(
               freshData.refreshToken || freshData.refresh_token;
 
             if (newAccessToken && newRefreshToken) {
-              console.log(
-                "[AXIOS HANDSHAKE SUCCESS] Rotated session cookies and headers successfully."
-              );
-
               // 1. Write rotated signatures to Client State
               localStorage.setItem("access_token", newAccessToken);
               localStorage.setItem("refresh_token", newRefreshToken);
@@ -282,14 +274,8 @@ export async function getTicker(market: string) {
   return handleResponse(response.data);
 }
 
-export async function getUserOrders(
-  market: string,
-  type: "open" | "history"
-) {
-  const response = await apiClient.get(
-    `/order?market=${market}&type=${type}`
-  );
-  console.log("User Orders Response:--------", response.data);
+export async function getUserOrders(market: string, type: "open" | "history") {
+  const response = await apiClient.get(`/order?market=${market}&type=${type}`);
   return handleResponse(response.data);
 }
 
@@ -304,9 +290,7 @@ export async function getTrades(market: string): Promise<any[]> {
 }
 
 export async function getDepth(market: string): Promise<any> {
-  console.log("Fetching depth for market:", market);
   const response = await apiClient.get(`/depth?market=${market}`);
-  console.log("Depth response:", response.data);
   return handleResponse(response.data);
 }
 
@@ -356,15 +340,19 @@ export async function getAssets(): Promise<string[]> {
   // Adjust based on your API response wrapper (e.g., response.data.data or response.data)
   return response.data.data || response.data;
 }
-export async function cancelOrder(orderId: string, side: string, baseAsset: string, quoteAsset: string) {
+export async function cancelOrder(
+  orderId: string,
+  side: string,
+  baseAsset: string,
+  quoteAsset: string
+) {
   const response = await apiClient.delete("/order", {
     data: {
       order_id: orderId,
       side: side,
       base_asset: baseAsset,
-      quote_asset: quoteAsset
-    }
+      quote_asset: quoteAsset,
+    },
   });
-  console.log("Cancel Order Response:--------", response.data);
   return response.data;
 }

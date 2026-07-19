@@ -189,12 +189,7 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
-      console.log(
-        "Refresh Token Rotation Successful: New tokens issued and cookies set.",
-        access_token,
-        refresh_token,
-        refreshPayload.user_id
-      );
+    
       // 6. Return both Casing Formats to satisfy both Next.js and Axios parsers
       return res.status(200).send(
         generateAPIResponse(

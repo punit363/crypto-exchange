@@ -17,7 +17,6 @@ const generateToken = (
   secret: string,
   expiresIn: SignOptions["expiresIn"]
 ): string => {
-  console.log(userId, secret, expiresIn, "--------------------");
   return jwt.sign({ user_id: userId }, secret, { expiresIn });}
 
 const verifyToken = (token: string, secret: string): JwtPayload | string =>
