@@ -26,7 +26,6 @@ class WSManager {
 
     this.isConnecting = true;
 
-    // Check this port! Update it to 7001 if that is where your Node.js WS server is running.
     this.url = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:7001";
 
     console.log(`⏳ Attempting to connect to WS at ${this.url}...`);
@@ -43,7 +42,6 @@ class WSManager {
       this.bufferedMessages = [];
     };
 
-    // 💥 ADD THIS ERROR HANDLER 💥
     this.ws.onerror = (error) => {
       console.error("🔴 WebSocket Error: ", error);
     };
@@ -59,29 +57,27 @@ class WSManager {
           return;
         }
 
-        // Console log for debugging
         console.log("🟢 WS RECEIVED:", parsed);
 
-        // 1. Check for 'trade' instead of just 'fills'
         if (parsed.order !== undefined) {
           const channel = `ORDER@${market}`;
           const cbs = this.callbacks.get(channel) || [];
-          cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
+          cbs.forEach((cb) => cb(parsed));
         } else if (parsed.trade !== undefined || parsed.fills !== undefined) {
           const channel = `TRADE@${market}`;
           const cbs = this.callbacks.get(channel) || [];
-          cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
+          cbs.forEach((cb) => cb(parsed));
         } else if (
           parsed.book !== undefined ||
           parsed.book_with_quantity !== undefined
         ) {
           const channel = `BOOK@${market}`;
           const cbs = this.callbacks.get(channel) || [];
-          cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
+          cbs.forEach((cb) => cb(parsed));
         } else if (parsed.ticker !== undefined) {
           const channel = `TICKER@${market}`;
           const cbs = this.callbacks.get(channel) || [];
-          cbs.forEach((cb) => cb(parsed)); // Pass the whole object down
+          cbs.forEach((cb) => cb(parsed));
         }
       } catch (err) {
         console.error("Failed to parse WS message", err);
@@ -105,7 +101,6 @@ class WSManager {
   ) {
     const message = { action: "SUBSCRIBE", type, market };
 
-    // 3. Buffer the message if not ready yet!
     if (!this.initialized || this.ws?.readyState !== WebSocket.OPEN) {
       this.bufferedMessages.push(message);
       return;

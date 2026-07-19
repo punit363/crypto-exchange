@@ -7,13 +7,11 @@ export function AuthModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
-  // Form input states
-  const [credential, setCredential] = useState(""); // Can be email or user_id
+  const [credential, setCredential] = useState(""); 
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Sync auth status with local storage dynamically
   useEffect(() => {
     setCurrentUser(getActiveUser());
 
@@ -37,7 +35,6 @@ export function AuthModal() {
         password,
       };
 
-      // Simple regex check to determine if the user entered an email or user_id
       if (credential.includes("@")) {
         payload.email = credential;
       } else {

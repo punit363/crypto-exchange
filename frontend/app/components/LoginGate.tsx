@@ -8,16 +8,13 @@ interface LoginGateProps {
 }
 
 export function LoginGate({ onAuthChange }: LoginGateProps) {
-  // Authorization view selectors
   const [isRegister, setIsRegister] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form input bindings - Sign In
   const [credential, setCredential] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // Form input bindings - Sign Up (matches exact /user POST endpoints keys)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,7 +43,6 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
       setLoginPassword("");
       onAuthChange();
     } catch (err) {
-      // Handled globally by httpClient interceptor toasts
     } finally {
       setIsSubmitting(false);
     }
@@ -54,7 +50,8 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email || !phone || !age || !regPassword) return;
+    if (!firstName || !lastName || !email || !phone || !age || !regPassword)
+      return;
 
     setIsSubmitting(true);
     try {
@@ -67,7 +64,6 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
         password: regPassword,
       });
 
-      // Clear input fields and flip back to login view cleanly
       setIsRegister(false);
       setCredential(email);
       setFirstName("");
@@ -76,7 +72,6 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
       setAge("");
       setRegPassword("");
     } catch (err) {
-      // Handled globally by httpClient interceptor toasts
     } finally {
       setIsSubmitting(false);
     }
@@ -84,16 +79,24 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
 
   return (
     <main className="min-h-screen w-full bg-[#0E1015] flex flex-col md:flex-row p-0 relative overflow-hidden select-none">
-      {/* Glow Effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#00C278]/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#3b82f6]/5 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Left Panel: Platform Features & Performance Stats */}
       <div className="hidden md:flex flex-col justify-between w-1/2 p-12 border-r border-slate-900 bg-[#0E1015]/40 backdrop-blur-sm z-10">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#00C278]/10 border border-[#00C278]/20 rounded-xl">
-            <svg className="w-6 h-6 text-[#00C278]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            <svg
+              className="w-6 h-6 text-[#00C278]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              />
             </svg>
           </div>
           <span className="text-lg font-bold tracking-wider uppercase bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
@@ -103,21 +106,31 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
 
         <div className="my-auto flex flex-col gap-6 max-w-lg">
           <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Trade Liquid Assets with <span className="text-[#00C278]">Microsecond</span> Speeds.
+            Trade Liquid Assets with{" "}
+            <span className="text-[#00C278]">Microsecond</span> Speeds.
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Experience microsecond trade matching, advanced secure token ledgers, and zero fragmentations. Build portfolio positions directly on our high-throughput central limit order book.
+            Experience microsecond trade matching, advanced secure token
+            ledgers, and zero fragmentations. Build portfolio positions directly
+            on our high-throughput central limit order book.
           </p>
 
-          {/* Microservice Latency Diagnostics */}
           <div className="grid grid-cols-2 gap-4 mt-6">
             <div className="p-4 bg-[#14151B] border border-slate-800/80 rounded-xl">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">24H Trade Volume</p>
-              <p className="text-xl font-bold text-white mt-1 tabular-nums">$148,390,121</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+                24H Trade Volume
+              </p>
+              <p className="text-xl font-bold text-white mt-1 tabular-nums">
+                $148,390,121
+              </p>
             </div>
             <div className="p-4 bg-[#14151B] border border-slate-800/80 rounded-xl">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Matching Latency</p>
-              <p className="text-xl font-bold text-[#00C278] mt-1 tabular-nums">&lt; 15μs</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+                Matching Latency
+              </p>
+              <p className="text-xl font-bold text-[#00C278] mt-1 tabular-nums">
+                &lt; 15μs
+              </p>
             </div>
           </div>
         </div>
@@ -128,58 +141,75 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
         </div>
       </div>
 
-      {/* Right Panel: Sleek Card Form Gate */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 z-10 bg-[#0E1015]/80">
-        
         <div className="md:hidden flex items-center gap-2 mb-8">
           <div className="p-2 bg-[#00C278]/10 border border-[#00C278]/20 rounded-lg">
-            <svg className="w-5 h-5 text-[#00C278]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            <svg
+              className="w-5 h-5 text-[#00C278]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              />
             </svg>
           </div>
-          <span className="text-sm font-bold tracking-widest uppercase text-white">Apex Exchange</span>
+          <span className="text-sm font-bold tracking-widest uppercase text-white">
+            Apex Exchange
+          </span>
         </div>
 
         <div className="w-full max-w-md bg-[#14151B] border border-slate-800/60 rounded-2xl p-8 shadow-2xl transition-all duration-300">
-          
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-white">
               {isRegister ? "Onboard Terminal" : "Welcome Back"}
             </h2>
             <p className="text-xs text-slate-400 mt-1.5">
-              {isRegister 
-                ? "Initialize your asset credentials to deploy active trades" 
+              {isRegister
+                ? "Initialize your asset credentials to deploy active trades"
                 : "Input authorization tokens to connect trading interfaces"}
             </p>
           </div>
 
-          {/* Segment Tab Controls */}
           <div className="flex bg-[#0E1015] p-1 rounded-xl mb-6 border border-slate-800/40">
             <button
               type="button"
-              onClick={() => { setIsRegister(false); }}
+              onClick={() => {
+                setIsRegister(false);
+              }}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                !isRegister ? "bg-[#1E2026] text-white shadow" : "text-slate-500 hover:text-slate-300"
+                !isRegister
+                  ? "bg-[#1E2026] text-white shadow"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               Sign In
             </button>
             <button
               type="button"
-              onClick={() => { setIsRegister(true); }}
+              onClick={() => {
+                setIsRegister(true);
+              }}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                isRegister ? "bg-[#1E2026] text-white shadow" : "text-slate-500 hover:text-slate-300"
+                isRegister
+                  ? "bg-[#1E2026] text-white shadow"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               Register
             </button>
           </div>
 
-          {/* Conditional Auth Forms */}
           {!isRegister ? (
             <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Email or User ID</label>
+                <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                  Email or User ID
+                </label>
                 <input
                   type="text"
                   required
@@ -192,7 +222,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Password</label>
+                <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                  Password
+                </label>
                 <div className="relative flex items-center">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -209,9 +241,39 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
                     className="absolute right-3.5 text-slate-500 hover:text-slate-350 transition-colors"
                   >
                     {showPassword ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.29 3.29m0 0L21 21" /></svg>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.29 3.29m0 0L21 21"
+                        />
+                      </svg>
                     ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
                     )}
                   </button>
                 </div>
@@ -230,10 +292,15 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-3.5">
+            <form
+              onSubmit={handleRegisterSubmit}
+              className="flex flex-col gap-3.5"
+            >
               <div className="grid grid-cols-2 gap-3.5">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">First Name</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    First Name
+                  </label>
                   <input
                     type="text"
                     required
@@ -245,7 +312,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Last Name</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    Last Name
+                  </label>
                   <input
                     type="text"
                     required
@@ -260,7 +329,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
 
               <div className="grid grid-cols-2 gap-3.5">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Email</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    Email
+                  </label>
                   <input
                     type="email"
                     required
@@ -272,7 +343,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Phone</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    Phone
+                  </label>
                   <input
                     type="text"
                     required
@@ -287,7 +360,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
 
               <div className="grid grid-cols-3 gap-3.5">
                 <div className="col-span-1 flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Age</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    Age
+                  </label>
                   <input
                     type="number"
                     required
@@ -299,7 +374,9 @@ export function LoginGate({ onAuthChange }: LoginGateProps) {
                   />
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Password</label>
+                  <label className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">
+                    Password
+                  </label>
                   <input
                     type="password"
                     required

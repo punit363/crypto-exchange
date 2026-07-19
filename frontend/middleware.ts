@@ -6,7 +6,6 @@ const PUBLIC_ROUTES = ["/login", "/register", "/"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. HARD SAFETY: Explicitly ignore static assets to prevent redirect loops
   if (
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/_next/") ||
@@ -16,7 +15,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Allow public routes through
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
@@ -24,12 +22,10 @@ export async function middleware(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
 
-  // 3. No session credentials found -> Redirect to login
   if (!accessToken && !refreshToken) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 4. Access Token expired but Refresh Token exists -> Silent rotation
   if (!accessToken && refreshToken) {
     try {
       const API_URL =
@@ -60,7 +56,6 @@ export async function middleware(request: NextRequest) {
 
       const response = NextResponse.next();
 
-      // FIXED: maxAge was 60 (seconds), now 86400 (24 hours)
       response.cookies.set("access_token", newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

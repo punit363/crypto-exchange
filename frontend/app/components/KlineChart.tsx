@@ -13,23 +13,21 @@ export function KlineChart({ market }: { market: string }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartManagerRef = useRef<ChartManager | null>(null);
 
-  // State for chart controls
-  const [activeInterval, setActiveInterval] = useState("1m"); // Defaulting to 1m for active visual testing
+  const [activeInterval, setActiveInterval] = useState("1m");
 
-  // Helper to dynamically size the fetch window based on interval
   const getLookbackWindow = (interval: string) => {
     const now = new Date().getTime();
     switch (interval) {
       case "1m":
-        return now - 1000 * 60 * 60 * 1; // 1 hr in milliseconds
+        return now - 1000 * 60 * 60 * 1;
       case "5m":
-        return now - 1000 * 60 * 60 * 3; // 3 hr in milliseconds
+        return now - 1000 * 60 * 60 * 3;
       case "15m":
-        return now - 1000 * 60 * 60 * 24; // 7 days in milliseconds
+        return now - 1000 * 60 * 60 * 24;
       case "1h":
-        return now - 1000 * 60 * 60 * 24 * 3; // 30 days in milliseconds
+        return now - 1000 * 60 * 60 * 24 * 3;
       case "1d":
-        return now - 1000 * 60 * 60 * 24 * 150; // 1 year in milliseconds
+        return now - 1000 * 60 * 60 * 24 * 150;
       default:
         return now - 1000 * 60 * 60 * 1;
     }
@@ -38,13 +36,13 @@ export function KlineChart({ market }: { market: string }) {
   const handleScrollLeft = () => {
     const chart = chartManagerRef.current;
     if (!chart) return;
-    chart.scrollLeft(20); // move back 20 bars
+    chart.scrollLeft(20);
   };
 
   const handleScrollRight = () => {
     const chart = chartManagerRef.current;
     if (!chart) return;
-    chart.scrollRight(20); // move forward 20 bars
+    chart.scrollRight(20);
   };
 
   useEffect(() => {
@@ -53,7 +51,6 @@ export function KlineChart({ market }: { market: string }) {
     const init = async () => {
       let klineData: KLine[] = [];
 
-      // Query the backend using 10-digit SECONDS to match backend parsing requirements.
       const endTime = Math.floor(new Date().getTime() / 1000);
       const startTime = Math.floor(getLookbackWindow(activeInterval) / 1000);
 
@@ -71,7 +68,6 @@ export function KlineChart({ market }: { market: string }) {
           chartManagerRef.current = null;
         }
 
-        // Map database candle objects to ChartManager interface defensively
         const formattedKlines = (klineData || [])
           .map((x) => {
             const timestampMs = Number(x.end);
@@ -81,21 +77,17 @@ export function KlineChart({ market }: { market: string }) {
               low: parseFloat(x.low) / SCALE,
               open: parseFloat(x.open) / SCALE,
               timestamp: new Date(timestampMs),
-              // Provide both formats to be robust with standard Lightweight Charts versions
+
               time: Math.floor(timestampMs / 1000),
             };
           })
           .sort((x, y) => x.timestamp.getTime() - y.timestamp.getTime());
 
-
-        /* STREAMING_CHUNK: Instantiating dynamic timescale constraints... */
-        // Configuration options passed directly to ChartManager constructor
         const chartOptions = {
           background: "#0e0f14",
           color: "white",
-          // Pass timescale configuration explicitly if your custom ChartManager maps options directly
+
           timeScale: {
-            timeVisible: activeInterval !== "1d", // Show time (HH:MM) for intraday data, hide for daily
             secondsVisible: false,
           },
         };
@@ -107,8 +99,6 @@ export function KlineChart({ market }: { market: string }) {
           activeInterval
         );
 
-        // DEFENSTIVE WRAPPER: If ChartManager exposes the underlying chart instance,
-        // we apply options explicitly on the fly to force-update the timescale ticks.
         const rawChart =
           (chartManager as any).chart || (chartManager as any)._chart;
         if (rawChart && typeof rawChart.applyOptions === "function") {
@@ -127,11 +117,9 @@ export function KlineChart({ market }: { market: string }) {
     init();
     wsClient.connect();
 
-    // WS Trade subscriber (Live updates)
     const handleTradeUpdate = (data: any) => {
       if (!isMounted || !chartManagerRef.current) return;
 
-      // Extract raw fill arrays defensively
       const fillList = Array.isArray(data)
         ? data
         : data.trade || data.data || [];
@@ -140,8 +128,6 @@ export function KlineChart({ market }: { market: string }) {
         const latestPrice = Number(fillList[0].price) / SCALE;
         const tradeTime = fillList[0].bucketTime || Date.now();
 
-
-        // Feed the live price update directly into the active charting engine
         chartManagerRef.current.updateLivePrice(latestPrice, tradeTime);
       }
     };
@@ -160,7 +146,6 @@ export function KlineChart({ market }: { market: string }) {
 
   return (
     <div className="flex flex-col flex-1 h-full bg-[#0e0f14]">
-      {/* Chart Toolbar */}
       <div className="flex flex-row items-center justify-between px-4 py-2 border-b border-slate-800">
         <div className="flex flex-row gap-2">
           {INTERVALS.map((interval) => (
@@ -176,10 +161,9 @@ export function KlineChart({ market }: { market: string }) {
               {interval}
             </button>
           ))}
-          {/* divider */}
+
           <div className="w-px bg-slate-700 mx-1" />
 
-          {/* scroll buttons */}
           <button
             onClick={handleScrollLeft}
             title="Scroll left"
@@ -214,7 +198,6 @@ export function KlineChart({ market }: { market: string }) {
         </div>
       </div>
 
-      {/* Chart Canvas */}
       <div className="flex-1 w-full relative">
         <div ref={chartRef} className="absolute inset-0" />
       </div>

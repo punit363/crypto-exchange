@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getUserOrders, cancelOrder } from "../utils/httpClient";
-import { wsClient } from "../utils/wsClient"; // Added WS client
+import { wsClient } from "../utils/wsClient"; 
 import { toast } from "react-hot-toast";
 
 const SCALE = 100_000_000;
@@ -13,7 +13,7 @@ export function OrdersPanel({ market }: { market: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Split market string to extract assets for the cancellation API
+
   const [baseAsset, quoteAsset] = market.split("_");
 
   const fetchOrders = async () => {
@@ -37,10 +37,10 @@ export function OrdersPanel({ market }: { market: string }) {
     fetchOrders();
 
     const handleOrderUpdate = (data: any) => {
-      // 1. Ensure we only act if the component is still mounted
+
       if (!isMounted) return;
 
-      // 2. Ensure the update is for the current market
+
       if (data.market !== market) return;
 
       const newOrder = data.order;

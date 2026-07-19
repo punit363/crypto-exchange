@@ -4,7 +4,7 @@ datasource db {
 
 generator client {
   provider            = "prisma-client-js"
-  importFileExtension = "ts"   // ← needed for tsx compatibility
+  importFileExtension = "ts" 
 }
 model User {
   user_id             String        @id
@@ -31,9 +31,9 @@ user_id          String
 user             User     @relation(fields: [user_id], references: [user_id])
 side             String   // buy | sell
 type             String   // limit | market
-quantity         Float    // Stored as Satoshi-scaled Integer (e.g., 1 BTC = 100,000,000)
+quantity         Float    //Satoshi-scaled Integer (1 BTC = 100,000,000)
 filled_quantity  Float    @default(0)
-price            Float    // Stored as Satoshi-scaled Integer
+price            Float    //Satoshi-scaled Integer
 status           String   @default("open")   // open | partial | filled | cancelled
 base_asset       String
 quote_asset      String
@@ -46,7 +46,7 @@ other_trades     Trade[]  @relation("OtherUserOrder")
 
 model Trade {
 trade_id       String   @id
-user_id        String                        // person who placed the latest order (aggressor)
+user_id        String                        // person who placed the latest order (latest)
 other_user_id  String                        // person whose order was already in the book (resting)
 order_id       String
 other_order_id String
@@ -54,11 +54,11 @@ user           User     @relation("UserTrades", fields: [user_id], references: [
 other_user     User     @relation("OtherUserTrades", fields: [other_user_id], references: [user_id])
 user_order     Order    @relation("UserOrder", fields: [order_id], references: [order_id])
 other_order    Order    @relation("OtherUserOrder", fields: [other_order_id], references: [order_id])
-quantity       Float    // Stored as Satoshi-scaled Integer
-price          Float    // Stored as Satoshi-scaled Integer
+quantity       Float    //Satoshi-scaled Integer
+price          Float    //Satoshi-scaled Integer
 base_asset     String
 quote_asset    String
-side           String                        // side of user_id (the aggressor) — buy | sell
+side           String                     
 created_at     DateTime @default(now())
 @@map("trades")
 }
@@ -68,7 +68,7 @@ candle_id   String   @id @default(uuid())
 interval    String   // 1m | 5m | 1h | 1d
 base_asset  String
 quote_asset String
-open        Float    // Stored as Satoshi-scaled Integer
+open        Float    //Satoshi-scaled Integer
 high        Float
 low         Float
 close       Float
@@ -84,7 +84,7 @@ user_id    String
 user       User     @relation(fields: [user_id], references: [user_id])
 type       String   // deposit | withdrawal
 asset      String   // INR | BTC
-amount     Float    // Stored as Satoshi-scaled Integer
+amount     Float    // Satoshi-scaled Integer
 status     String   @default("pending")      // pending | completed | failed
 created_at DateTime @default(now())          // ← consistent naming
 @@map("transactions")

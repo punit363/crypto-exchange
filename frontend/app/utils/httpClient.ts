@@ -4,9 +4,6 @@ import { Depth, KLine, Ticker } from "./types";
 
 const BASE_URL = "http://localhost:8000/api/v1";
 
-/**
- * Helper to write browser cookies safely on the client side
- */
 function setCookie(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document !== "undefined") {
     const secureFlag = window.location.protocol === "https:" ? "Secure;" : "";
@@ -16,9 +13,6 @@ function setCookie(name: string, value: string, maxAgeSeconds: number) {
   }
 }
 
-/**
- * Helper to wipe a browser cookie on the client side
- */
 function deleteCookie(name: string) {
   if (typeof document !== "undefined") {
     document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax;`;
@@ -27,10 +21,9 @@ function deleteCookie(name: string) {
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // CRITICAL: Transmits cookies automatically to Express backend
+  withCredentials: true,
 });
 
-// Outgoing Request interceptor: Attach tokens from localStorage defensively
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
@@ -47,10 +40,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// =========================================================================
-// CONCURRENCY LOCK & REFRESH QUEUE INTERCEPTOR
-// Solves SPA race conditions where parallel requests hit backend together
-// =========================================================================
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
@@ -65,7 +54,6 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Response interceptor: Global error parsing + auto-refresh/logout handling
 apiClient.interceptors.response.use(
   (response) => {
     const result = response.data;
@@ -78,13 +66,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if error is 401 Unauthorized and request has not been retried yet
     if (
       error.response &&
       error.response.status === 401 &&
       !originalRequest._retry
     ) {
-      // If refresh handshake is already active on another concurrent call, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -96,7 +82,6 @@ apiClient.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
-      // Mark request as retried to prevent infinite 401 loops
       originalRequest._retry = true;
       isRefreshing = true;
 
@@ -104,33 +89,27 @@ apiClient.interceptors.response.use(
         const refreshToken = localStorage.getItem("refresh_token");
 
         if (!refreshToken) {
-          // No credentials available, proceed directly with cleanup
           handleWipeAndLogout();
           return reject(error);
         }
 
-        // Trigger a single, unified POST /auth/refresh request to the API Gateway
         apiClient
           .post("/auth/refresh", { refreshToken })
           .then(({ data }) => {
             const freshData = data.data || data;
 
-            // Support both snake_case and camelCase returned values
             const newAccessToken =
               freshData.accessToken || freshData.access_token;
             const newRefreshToken =
               freshData.refreshToken || freshData.refresh_token;
 
             if (newAccessToken && newRefreshToken) {
-              // 1. Write rotated signatures to Client State
               localStorage.setItem("access_token", newAccessToken);
               localStorage.setItem("refresh_token", newRefreshToken);
 
-              // 2. Sync values back into Browser Cookies (24H container and 7D slider)
-              setCookie("access_token", newAccessToken, 60 * 60 * 24 * 7); // 24 Hours (Matches 1d Token)
-              setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7); // 7 Days
+              setCookie("access_token", newAccessToken, 60 * 60 * 24 * 7);
+              setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7);
 
-              // 3. Update active headers
               apiClient.defaults.headers.common[
                 "access_token"
               ] = `Bearer ${newAccessToken}`;
@@ -138,10 +117,8 @@ apiClient.interceptors.response.use(
                 "access_token"
               ] = `Bearer ${newAccessToken}`;
 
-              // 4. Resolve paused items inside failed request queue
               processQueue(null, newAccessToken);
 
-              // 5. Re-run and resolve original failed request
               resolve(apiClient(originalRequest));
             } else {
               throw new Error(
@@ -181,15 +158,15 @@ function handleWipeAndLogout() {
   }
 }
 
-/**
- * Handle unified standard response
- */
+
+
+
 function handleResponse(result: any) {
   if (!result) return null;
   return result.data !== undefined ? result.data : result;
 }
 
-// Authentication handlers
+
 export async function login(payload: {
   user_id?: string;
   email?: string;
@@ -213,7 +190,6 @@ export async function login(payload: {
       })
     );
 
-    // FIX: Set browser cookie Max-Age to 24 Hours (86400 seconds) to match the 1d JWT lifetime!
     setCookie("access_token", data.access_token, 60 * 60 * 24 * 7);
     setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
@@ -268,7 +244,7 @@ export function getActiveUser() {
   return null;
 }
 
-// Market endpoints
+
 export async function getTicker(market: string) {
   const response = await apiClient.get(`/ticker?market=${market}`);
   return handleResponse(response.data);
@@ -314,17 +290,11 @@ export async function createOrder(orderPayload: any): Promise<any> {
   return data;
 }
 
-/**
- * Retrieves the live balanced ledger from the database
- */
 export async function getUserBalance(userId: string): Promise<any> {
   const response = await apiClient.get(`/balance?userId=${userId}`);
   return response.data;
 }
 
-/**
- * Triggers a secure Deposit or Withdrawal adjustment request directly to the Engine
- */
 export async function updateUserBalance(payload: {
   user_id: string;
   amount: number;
@@ -337,7 +307,7 @@ export async function updateUserBalance(payload: {
 
 export async function getAssets(): Promise<string[]> {
   const response = await apiClient.get("/asset");
-  // Adjust based on your API response wrapper (e.g., response.data.data or response.data)
+
   return response.data.data || response.data;
 }
 export async function cancelOrder(

@@ -1,7 +1,6 @@
 import { prisma } from "../../src/client";
 
 export async function seedAssets() {
-  // Upsert to avoid duplicates on re-runs
   await prisma.user.createMany({
     data: [
       {

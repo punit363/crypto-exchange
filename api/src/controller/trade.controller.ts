@@ -32,7 +32,6 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
         );
     }
 
-    // 1. Fetch the 50 most recent trades for this specific market
     const recentTrades = await prisma.trade.findMany({
       where: {
         base_asset: baseAsset,

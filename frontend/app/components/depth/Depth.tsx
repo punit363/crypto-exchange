@@ -14,11 +14,10 @@ export function Depth({ market }: { market: string }) {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Initial REST fetch for state synchronization
     getDepth(market)
       .then((data) => {
         if (!isMounted) return;
-        
+
         if (data.currentPrice) setPrice(data.currentPrice.toString());
 
         if (data.bids) {
@@ -39,19 +38,16 @@ export function Depth({ market }: { market: string }) {
       })
       .catch((err) => console.error("Failed to fetch initial depth", err));
 
-    /* STREAMING_CHUNK: Implementing defensive websocket payload extractors... */
-    // 2. Real-time WebSocket handlers
     const handleBookUpdate = (data: any) => {
       if (!isMounted) return;
 
-      // Extract bids and asks defensively, checking both flat and nested properties
       const rawBids = data.bids || data.book?.bids || data.data?.bids;
       const rawAsks = data.asks || data.book?.asks || data.data?.asks;
 
       if (rawBids) {
         const sortedBids = Object.entries(rawBids)
           .map(([p, s]) => [p, String(s)] as [string, string])
-          // CRITICAL: Filter out filled/cancelled orders (where size is 0)
+
           .filter(([_, s]) => Number(s) > 0)
           .sort((a, b) => Number(b[0]) - Number(a[0]));
         setBids(sortedBids);
@@ -60,7 +56,7 @@ export function Depth({ market }: { market: string }) {
       if (rawAsks) {
         const sortedAsks = Object.entries(rawAsks)
           .map(([p, s]) => [p, String(s)] as [string, string])
-          // CRITICAL: Filter out filled/cancelled asks (where size is 0)
+
           .filter(([_, s]) => Number(s) > 0)
           .sort((a, b) => Number(a[0]) - Number(b[0]));
         setAsks(sortedAsks);
@@ -69,14 +65,15 @@ export function Depth({ market }: { market: string }) {
 
     const handleTradeUpdate = (fills: any) => {
       if (!isMounted) return;
-      // Handles both array of fills and standard objects
-      const fillList = Array.isArray(fills) ? fills : (fills.trade || fills.data || []);
+
+      const fillList = Array.isArray(fills)
+        ? fills
+        : fills.trade || fills.data || [];
       if (Array.isArray(fillList) && fillList.length > 0 && fillList[0].price) {
         setPrice(fillList[0].price.toString());
       }
     };
 
-    // Subscriptions setup
     wsClient.connect();
     wsClient.subscribe(market, "BOOK", handleBookUpdate);
     wsClient.subscribe(market, "TRADE", handleTradeUpdate);
@@ -106,14 +103,29 @@ export function Depth({ market }: { market: string }) {
     });
   };
 
-  const bidsWithTotal = useMemo(() => processLevels(bids?.slice(0, 15) || []), [bids]);
-  const asksWithTotal = useMemo(() => processLevels(asks?.slice(0, 15) || []).reverse(), [asks]);
+  const bidsWithTotal = useMemo(
+    () => processLevels(bids?.slice(0, 15) || []),
+    [bids]
+  );
+  const asksWithTotal = useMemo(
+    () => processLevels(asks?.slice(0, 15) || []).reverse(),
+    [asks]
+  );
 
-  const maxTotal = Math.max(asksWithTotal[0]?.rawTotal || 0, bidsWithTotal[bidsWithTotal.length - 1]?.rawTotal || 0);
+  const maxTotal = Math.max(
+    asksWithTotal[0]?.rawTotal || 0,
+    bidsWithTotal[bidsWithTotal.length - 1]?.rawTotal || 0
+  );
 
   const highestBid = bidsWithTotal.length > 0 ? bidsWithTotal[0].rawPrice : 0;
-  const lowestAsk = asksWithTotal.length > 0 ? asksWithTotal[asksWithTotal.length - 1].rawPrice : 0;
-  const actualSpread = lowestAsk > 0 && highestBid > 0 ? ((lowestAsk - highestBid) / SCALE).toFixed(2) : "--";
+  const lowestAsk =
+    asksWithTotal.length > 0
+      ? asksWithTotal[asksWithTotal.length - 1].rawPrice
+      : 0;
+  const actualSpread =
+    lowestAsk > 0 && highestBid > 0
+      ? ((lowestAsk - highestBid) / SCALE).toFixed(2)
+      : "--";
 
   return (
     <div className="flex flex-col w-full h-full bg-[#14151B] border-none font-mono text-[11px] select-none">
@@ -127,18 +139,34 @@ export function Depth({ market }: { market: string }) {
         {asksWithTotal.map((ask) => {
           const barWidth = maxTotal > 0 ? (ask.rawTotal / maxTotal) * 100 : 0;
           return (
-            <div key={`ask-${ask.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in">
-              <div className="absolute right-0 top-0 h-full bg-[#F94D5C]/10 transition-all duration-350" style={{ width: `${barWidth}%` }} />
-              <div className="flex-1 text-left text-[#F94D5C] tabular-nums z-10">{ask.price}</div>
-              <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{ask.quantity}</div>
-              <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{ask.totalFormatted}</div>
+            <div
+              key={`ask-${ask.rawPrice}`}
+              className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in"
+            >
+              <div
+                className="absolute right-0 top-0 h-full bg-[#F94D5C]/10 transition-all duration-350"
+                style={{ width: `${barWidth}%` }}
+              />
+              <div className="flex-1 text-left text-[#F94D5C] tabular-nums z-10">
+                {ask.price}
+              </div>
+              <div className="flex-1 text-right text-slate-300 tabular-nums z-10">
+                {ask.quantity}
+              </div>
+              <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">
+                {ask.totalFormatted}
+              </div>
             </div>
           );
         })}
       </div>
 
       <div className="flex items-center justify-between px-3 py-2 my-1 border-y border-slate-800/40 bg-[#0E1015]/50">
-        <span className={`text-[15px] font-semibold ${price ? "text-[#00C278]" : "text-slate-500"}`}>
+        <span
+          className={`text-[15px] font-semibold ${
+            price ? "text-[#00C278]" : "text-slate-500"
+          }`}
+        >
           {price ? (Number(price) / SCALE).toFixed(2) : "--"}
         </span>
         <span className="text-xs text-slate-500">Spread: {actualSpread}</span>
@@ -148,11 +176,23 @@ export function Depth({ market }: { market: string }) {
         {bidsWithTotal.map((bid) => {
           const barWidth = maxTotal > 0 ? (bid.rawTotal / maxTotal) * 100 : 0;
           return (
-            <div key={`bid-${bid.rawPrice}`} className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in">
-              <div className="absolute right-0 top-0 h-full bg-[#00C278]/10 transition-all duration-350" style={{ width: `${barWidth}%` }} />
-              <div className="flex-1 text-left text-[#00C278] tabular-nums z-10">{bid.price}</div>
-              <div className="flex-1 text-right text-slate-300 tabular-nums z-10">{bid.quantity}</div>
-              <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">{bid.totalFormatted}</div>
+            <div
+              key={`bid-${bid.rawPrice}`}
+              className="relative flex flex-row justify-between px-3 py-[2px] hover:bg-slate-800/50 cursor-pointer group animate-fade-in"
+            >
+              <div
+                className="absolute right-0 top-0 h-full bg-[#00C278]/10 transition-all duration-350"
+                style={{ width: `${barWidth}%` }}
+              />
+              <div className="flex-1 text-left text-[#00C278] tabular-nums z-10">
+                {bid.price}
+              </div>
+              <div className="flex-1 text-right text-slate-300 tabular-nums z-10">
+                {bid.quantity}
+              </div>
+              <div className="flex-1 text-right text-slate-500 group-hover:text-slate-400 tabular-nums z-10">
+                {bid.totalFormatted}
+              </div>
             </div>
           );
         })}

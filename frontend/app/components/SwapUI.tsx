@@ -4,24 +4,21 @@ import { createOrder } from "../utils/httpClient";
 
 const MOCK_USER_ID_1 = "usr_6q9g3syt014";
 const MOCK_USER_ID_2 = "usr_xslwr9hnet";
-const SCALE = 100_000_000; // 10^8
+const SCALE = 100_000_000;
 
 export function SwapUI({ market }: { market: string }) {
   const [baseAsset, quoteAsset] = market.split("_");
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
   const [type, setType] = useState<"limit" | "market">("limit");
-  
-  // States for user input (always strings to handle empty inputs cleanly)
+
   const [price, setPrice] = useState("");
-  const [quantity, setQuantity] = useState(""); // Acts as "Budget" for Market Buys
+  const [quantity, setQuantity] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Calculate total only for Limit orders
+
   const total = Number(price) * Number(quantity) || 0;
 
   const handleSubmit = async () => {
-    // 1. Validation
     if (!quantity || (type === "limit" && !price)) return;
 
     setIsSubmitting(true);
@@ -29,24 +26,21 @@ export function SwapUI({ market }: { market: string }) {
       let finalPrice = 0;
       let finalQuantity = 0;
 
-      // 2. SCALED INTEGER MATH: Ensure values are floored to avoid floating-point decimals
       if (type === "limit") {
         finalPrice = Math.floor(Number(price) * SCALE);
         finalQuantity = Math.floor(Number(quantity) * SCALE);
       } else if (type === "market") {
         if (activeTab === "buy") {
-          // ENGINE REQUIREMENT: Market Buys use 'price' as the Quote Asset budget
-          finalPrice = Math.floor(Number(quantity) * SCALE); 
+          finalPrice = Math.floor(Number(quantity) * SCALE);
           finalQuantity = 0;
         } else {
-          // ENGINE REQUIREMENT: Market Sells use 'quantity' as the Base Asset amount
           finalPrice = 0;
           finalQuantity = Math.floor(Number(quantity) * SCALE);
         }
       }
 
       await createOrder({
-        user_id: MOCK_USER_ID_1, // Toggle to MOCK_USER_ID_2 to test the other user!
+        user_id: MOCK_USER_ID_1,
         price: finalPrice,
         quantity: finalQuantity,
         side: activeTab,
@@ -55,7 +49,6 @@ export function SwapUI({ market }: { market: string }) {
         quoteAsset: quoteAsset,
       });
 
-      // Clear inputs on success
       setPrice("");
       setQuantity("");
     } catch (error) {
@@ -65,14 +58,12 @@ export function SwapUI({ market }: { market: string }) {
     }
   };
 
-  // UI Helpers to determine what the 'Quantity' input means based on order type
   const isMarketBuy = type === "market" && activeTab === "buy";
   const amountLabel = isMarketBuy ? "Total Budget" : "Quantity";
   const amountUnit = isMarketBuy ? quoteAsset : baseAsset;
 
   return (
     <div className="flex flex-col w-full bg-[#14151B] border border-slate-800/50 rounded-lg p-4">
-      {/* Segmented Control for Buy / Sell */}
       <div className="flex flex-row bg-[#0E1015] rounded-lg p-1 mb-4">
         <button
           onClick={() => setActiveTab("buy")}
@@ -96,7 +87,6 @@ export function SwapUI({ market }: { market: string }) {
         </button>
       </div>
 
-      {/* Limit / Market Tabs */}
       <div className="flex flex-row gap-4 mb-4 border-b border-slate-800/50 pb-2">
         {["limit", "market"].map((t) => (
           <button
@@ -112,7 +102,6 @@ export function SwapUI({ market }: { market: string }) {
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Balance Display */}
         <div className="flex items-center justify-between">
           <p className="text-xs font-normal text-slate-500">Balance</p>
           <p className="font-medium text-xs text-slate-300">
@@ -120,7 +109,6 @@ export function SwapUI({ market }: { market: string }) {
           </p>
         </div>
 
-        {/* Price Input (Disabled for Market Orders) */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between">
             <p className="text-xs text-slate-500">Price</p>
@@ -146,7 +134,6 @@ export function SwapUI({ market }: { market: string }) {
           </div>
         </div>
 
-        {/* Quantity / Budget Input */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between">
             <p className="text-xs text-slate-500">{amountLabel}</p>
@@ -170,7 +157,6 @@ export function SwapUI({ market }: { market: string }) {
           </div>
         </div>
 
-        {/* Order Value (Limit Only) */}
         <div className="flex justify-between items-center py-1">
           <p className="text-xs text-slate-500">Order Value</p>
           <p className="text-xs font-medium text-white">
@@ -179,7 +165,6 @@ export function SwapUI({ market }: { market: string }) {
           </p>
         </div>
 
-        {/* Submit Button */}
         <button
           type="button"
           onClick={handleSubmit}
@@ -199,7 +184,6 @@ export function SwapUI({ market }: { market: string }) {
           )}
         </button>
 
-        {/* Order Options */}
         <div className="flex flex-row gap-4 mt-2">
           {["Post Only", "IOC"].map((opt) => (
             <div

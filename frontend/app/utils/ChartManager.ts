@@ -10,7 +10,7 @@ export class ChartManager {
   private candleSeries: ISeriesApi<"Candlestick">;
   private lastUpdateTime: number = 0;
   private chart: any;
-  private intervalMs: number; // Added to track when to roll over the candle
+  private intervalMs: number;
   
   private currentBar: {
     open: number;
@@ -24,9 +24,9 @@ export class ChartManager {
     ref: any,
     initialData: any[],
     layout: { background: string; color: string },
-    interval: string // Added interval parameter
+    interval: string
   ) {
-    // Map the string interval (e.g. "1h") to milliseconds
+
     this.intervalMs = this.getIntervalMs(interval);
 
     const chart = createLightWeightChart(ref, {
@@ -89,7 +89,6 @@ export class ChartManager {
     this.chart.timeScale().scrollToPosition(currentPosition + bars, true);
   }
 
-  // Helper to convert frontend string to milliseconds
   private getIntervalMs(interval: string): number {
     switch (interval) {
         case "1m": return 60 * 1000;
@@ -130,12 +129,12 @@ export class ChartManager {
     });
   }
 
-  // Add a private flag at the top of your ChartManager class:
+
   private isDestroyed = false;
 
-  // Update the destroy method at the bottom:
+
   public destroy() {
-    if (this.isDestroyed) return; // Guard clause
+    if (this.isDestroyed) return;
     
     try {
         this.chart.remove();

@@ -58,7 +58,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 15 mins (JWT lifetime)
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
 
@@ -66,7 +66,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days sliding window
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
 
@@ -122,13 +122,11 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
     let refreshToken: string | undefined = undefined;
     const refreshAuthHeader = req.headers.refresh_token as string;
 
-    // 1. Triple Extraction Strategy (Header, Cookie, or JSON Request Body)
     if (refreshAuthHeader && refreshAuthHeader.startsWith("Bearer ")) {
       refreshToken = refreshAuthHeader.split(" ")[1];
     } else if (req.cookies?.refresh_token) {
       refreshToken = req.cookies.refresh_token;
     } else if (req.body?.refreshToken || req.body?.refresh_token) {
-      // FIX: Next.js Edge Middleware sends token in body; extract it here cleanly
       refreshToken = req.body.refreshToken || req.body.refresh_token;
     }
 
@@ -190,14 +188,11 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         path: "/",
       });
     
-      // 6. Return both Casing Formats to satisfy both Next.js and Axios parsers
       return res.status(200).send(
         generateAPIResponse(
           {
-            // Snake-case for standard REST responses
             access_token,
             refresh_token,
-            // Camel-case to prevent Next.js Middleware and Axios desync crashes
             accessToken: access_token,
             refreshToken: refresh_token,
             user_id: refreshPayload.user_id,
@@ -218,7 +213,6 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         .json({ message: "Unauthorized: invalid refresh token" });
     }
   } catch (error) {
-    // Fixed log description typo
     console.error("Error with Token Refresh Handshake:", error);
     return res.status(500).json({ error: "Failed to Refresh" });
   }

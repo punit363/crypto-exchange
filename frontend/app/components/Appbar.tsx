@@ -23,7 +23,6 @@ export function Appbar() {
     };
   }, []);
 
-  // Determine active route index
   const isTradeActive = pathname.startsWith("/trade");
   const isMarketsActive = pathname === "/" || pathname.startsWith("/markets");
   const isBalanceActive = pathname.startsWith("/balance");
@@ -31,9 +30,7 @@ export function Appbar() {
   return (
     <header className="w-full bg-[#14151B] border-b border-slate-900 px-4 h-14 flex items-center justify-between z-40 shrink-0 select-none">
       
-      {/* Left Area: Branding & Main Navigation Links */}
       <div className="flex items-center gap-8 h-full">
-        {/* Brand Terminal Launch */}
         <div 
           onClick={() => router.push("/")} 
           className="flex items-center gap-2.5 cursor-pointer group"
@@ -56,10 +53,9 @@ export function Appbar() {
           </span>
         </div>
 
-        {/* Global Navigation Hub */}
         <nav className="flex items-center gap-6 h-full text-xs font-semibold">
           <button
-            onClick={() => router.push("/")} // Maps back to landing spot list index
+            onClick={() => router.push("/")}
             className={`transition-all duration-200 h-full flex items-center border-b-2 relative ${
               isMarketsActive 
                 ? "text-white border-[#00C278]" 
@@ -88,10 +84,8 @@ export function Appbar() {
         </nav>
       </div>
 
-      {/* Right Area: Session Status, Global Triggers & Auth Gateway */}
       <div className="flex items-center gap-5">
         
-        {/* Action Buttons (Rendered only when logged in) */}
         {currentUser && (
           <div className="flex items-center gap-2">
             <button className="px-3.5 py-1.5 bg-[#00C278]/10 hover:bg-[#00C278]/15 border border-[#00C278]/20 hover:border-[#00C278]/40 text-[#00C278] text-[11px] font-bold rounded-lg uppercase tracking-wider transition-all duration-200">
@@ -103,13 +97,11 @@ export function Appbar() {
           </div>
         )}
 
-        {/* Engine Ping Connection Badge */}
         <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 bg-[#0E1015] border border-slate-900 rounded-lg text-[10px] text-slate-400 font-mono font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00C278] animate-pulse" />
           Engine: Connected
         </div>
 
-        {/* Dynamic Auth Controller */}
         <div className="pl-4 border-l border-slate-800 h-6 flex items-center">
           <AuthModal />
         </div>

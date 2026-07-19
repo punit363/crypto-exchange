@@ -12,7 +12,6 @@ interface UserBalance {
 }
 
 const SUPPORTED_MARKETS = [
-  // --- USDT Hub (High Liquidity) ---
   { base: "BTC", quote: "USDT" },
   { base: "ETH", quote: "USDT" },
   { base: "SOL", quote: "USDT" },
@@ -23,19 +22,13 @@ const SUPPORTED_MARKETS = [
   { base: "MATIC", quote: "USDT" },
   { base: "BCH", quote: "USDT" },
   { base: "FIL", quote: "USDT" },
-
-  // --- USDC Hub (Regulated Stablecoin) ---
   { base: "BTC", quote: "USDC" },
   { base: "ETH", quote: "USDC" },
   { base: "SOL", quote: "USDC" },
   { base: "AVAX", quote: "USDC" },
-
-  // --- USD Hub (Fiat) ---
   { base: "BTC", quote: "USD" },
   { base: "ETH", quote: "USD" },
   { base: "LTC", quote: "USD" },
-
-  // --- BTC Hub (Crypto-Native Pairs) ---
   { base: "ETH", quote: "BTC" },
   { base: "SOL", quote: "BTC" },
   { base: "ADA", quote: "BTC" },
@@ -44,8 +37,6 @@ const SUPPORTED_MARKETS = [
   { base: "LINK", quote: "BTC" },
   { base: "AVAX", quote: "BTC" },
   { base: "UNI", quote: "BTC" },
-
-  // --- ETH Hub (DeFi Pairs) ---
   { base: "SOL", quote: "ETH" },
   { base: "MATIC", quote: "ETH" },
   { base: "AAVE", quote: "ETH" },
@@ -486,7 +477,7 @@ class Engine {
               status,
               base_asset: baseAsset,
               quote_asset: quoteAsset,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
             },
           };
 
@@ -906,8 +897,7 @@ class Engine {
             );
           }
           balance.set(user_id, user_balance);
-       
-          // OPTIMIZATION: Non-blocking asynchronous transmission of balance update response
+
           redis
             .sendApiResponse(
               {
@@ -930,7 +920,6 @@ class Engine {
             error.message
           );
 
-          // OPTIMIZATION: Non-blocking error response fallback routing
           redis
             .sendApiResponse(
               {
@@ -962,7 +951,6 @@ class Engine {
             throw new Error(`User balance not found for user_id: ${user_id}`);
           }
 
-          // OPTIMIZATION: Non-blocking asynchronous transmission of fetched balances
           redis
             .sendApiResponse(
               {
@@ -985,7 +973,6 @@ class Engine {
             error.message
           );
 
-          // OPTIMIZATION: Non-blocking error response fallback routing
           redis
             .sendApiResponse(
               {
@@ -1020,7 +1007,7 @@ class Engine {
     const redis = await RedisHandler.createInstance();
     try {
       const user_id = user.user_id;
-      const asset = user.asset || SUPPORTED_MARKETS[0].base; // Default to the first supported base asset if not provided
+      const asset = user.asset || SUPPORTED_MARKETS[0].base; 
       const amount = user.amount || 0;
 
       if (!user_id) {
@@ -1136,7 +1123,6 @@ class Engine {
             error.message
           );
 
-          // OPTIMIZATION: Non-blocking error response fallback routing
           redis
             .sendApiResponse(
               {
@@ -1190,7 +1176,6 @@ class Engine {
             error.message
           );
 
-          // OPTIMIZATION: Non-blocking error response fallback routing
           redis
             .sendApiResponse(
               {

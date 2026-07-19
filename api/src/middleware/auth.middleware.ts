@@ -46,7 +46,3 @@ export const authMiddleware = async (
     res.status(401).json({ message: "Unauthorized: invalid refresh token" });
   }
 };
-// } catch (error) {
-// next(error);
-// }
-// };

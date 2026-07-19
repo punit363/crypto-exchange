@@ -5,7 +5,7 @@ import { wsClient } from "../utils/wsClient";
 import { getTrades } from "../utils/httpClient";
 
 const SCALE = 100_000_000;
-// 1. Renamed to TradeEvent to avoid collision with the imported Trade type
+
 interface TradeEvent {
   tradeId: string;
   price: string | number;
@@ -20,7 +20,7 @@ export function Trades({ market }: { market: string }) {
   useEffect(() => {
     let isMounted = true;
 
-    // 2. Fetch the initial snapshot and safely map the data
+
     getTrades(market)
       .then((initialTrades: any[]) => {
         if (isMounted && Array.isArray(initialTrades)) {
@@ -41,10 +41,10 @@ export function Trades({ market }: { market: string }) {
     wsClient.connect();
 
     const handleTradeUpdate = (data: any) => {
-      // 1. Unwrap the backend payload!
+
       const fills = data.trade || data;
 
-      // 2. Safely check if it's an array and actually has trades in it
+
       if (!isMounted || !Array.isArray(fills) || fills.length === 0) return;
 
       setTrades((prevTrades) => {
@@ -71,14 +71,14 @@ export function Trades({ market }: { market: string }) {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#14151B]">
-      {/* Header */}
+
       <div className="flex justify-between px-3 py-1 mt-1 text-xs font-medium text-slate-500 border-b border-slate-800/50">
         <div className="w-1/3 text-left">Price</div>
         <div className="w-1/3 text-right">Size</div>
         <div className="w-1/3 text-right">Time</div>
       </div>
 
-      {/* Trade List */}
+
       <div className="flex-1 overflow-y-auto no-scrollbar pt-1">
         {trades.length === 0 ? (
           <div className="flex items-center justify-center h-20 text-slate-500 font-sans text-xs">
@@ -96,8 +96,8 @@ export function Trades({ market }: { market: string }) {
               }
             );
 
-            // Premium Backpack styling: green for buys, red for sells
-            const isBuy = trade.isBuyerMaker === false; // Maker sold = taker bought
+
+            const isBuy = trade.isBuyerMaker === false;
             const priceColor =
               trade.isBuyerMaker !== undefined
                 ? isBuy
@@ -107,7 +107,7 @@ export function Trades({ market }: { market: string }) {
 
             return (
               <div
-                // FIX: Appended index to the tradeId to guarantee uniqueness!
+
                 key={`${trade.tradeId}-${index}`}
                 className="flex justify-between px-3 py-[3px] text-[11px] tabular-nums hover:bg-slate-800/50 cursor-pointer transition-colors"
               >

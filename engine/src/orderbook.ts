@@ -26,10 +26,9 @@ export interface Fills {
   bucketTime: number;
 }
 
-// Unified communication contract for matching engine actions
 export interface EngineResponse<T> {
   status: "SUCCESS" | "FAILED";
-  odb_status_code: number; // 1 for Success, 0 for failure
+  odb_status_code: number;
   message: string;
   data: T | null;
 }
@@ -74,7 +73,6 @@ export class Orderbook {
     this.lastTradeId = lastTradeId;
     this.currentPrice = currentPrice;
 
-    // Rebuild depth cache map upon snapshot load
     this.rebuildDepthCache();
   }
 
@@ -166,7 +164,6 @@ export class Orderbook {
           o.status = "partial";
         }
 
-        // Subtract from matching visual depth map
         this.bookWithQuantity.bids[o.price] =
           (this.bookWithQuantity.bids[o.price] || 0) - fillQuantity;
 
@@ -191,7 +188,6 @@ export class Orderbook {
         }
       }
 
-      // Clear key on depth reach zero to prevent memory leak
       if (this.bookWithQuantity.bids[o.price] <= 0) {
         delete this.bookWithQuantity.bids[o.price];
       }
@@ -215,7 +211,6 @@ export class Orderbook {
       };
 
       if (filled < quantity) {
-        // Insert sell order sorted (ascending by price)
         const index = this.asks.findIndex((el: Order) => el.price > odr.price);
         if (index === -1) {
           this.asks.push(odr);
@@ -223,7 +218,6 @@ export class Orderbook {
           this.asks.splice(index, 0, odr);
         }
 
-        // Add remaining qty to Ask depth maps
         this.bookWithQuantity.asks[price] =
           (this.bookWithQuantity.asks[price] || 0) + quantity - filled;
       }
@@ -231,7 +225,6 @@ export class Orderbook {
       unsold_market_order_quanity = quantity - filled;
     }
 
-    // Purge matched bids
     this.bids = this.bids.filter((_, idx) => !bid_splice_indexes.includes(idx));
 
     return {
@@ -263,7 +256,6 @@ export class Orderbook {
    
     for (const o of this.asks) {
       if (type === "market") {
-        // SCALED INTEGER MATH: Price acts as Quote budget for buying BTC
         const affordableBase = Math.floor((price * SCALE) / o.price);
         const availableBase = o.quantity - o.filled;
         const fillQuantity = Math.min(affordableBase, availableBase);
@@ -357,7 +349,6 @@ export class Orderbook {
         userID: user_id,
       };
 
-      // Insert buy order sorted (descending by price)
       const index = this.bids.findIndex((el: Order) => el.price < odr.price);
       if (index === -1) {
         this.bids.push(odr);
@@ -373,7 +364,6 @@ export class Orderbook {
       unused_market_order_amount = price;
     }
 
-    // Purge matched asks
     this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
 
     if (type === "limit") {
@@ -411,7 +401,6 @@ export class Orderbook {
   ): EngineResponse<MatchResult> => {
     const { side, quantity, price, type } = order_data;
 
-    // 1. Structural Order Validation Guards
     if (!user_id) {
       return {
         status: "FAILED",
@@ -440,7 +429,6 @@ export class Orderbook {
       };
     }
 
-    // 2. Dispatch Matching
     try {
       if (side === "sell") {
         const result = this.executeSellOrder(user_id, order_data);
@@ -514,7 +502,6 @@ export class Orderbook {
 
     const orderToCancel = bookList[idx];
 
-    // Double trade prevention check
     if (orderToCancel.filled === orderToCancel.quantity) {
       return {
         status: "FAILED",

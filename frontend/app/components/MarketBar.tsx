@@ -11,17 +11,14 @@ const SCALE = 100_000_000;
 export const MarketBar = ({ market }: { market: string }) => {
   const [ticker, setTicker] = useState<TickerType | null>(null);
 
-  // Helper to normalize the new nested ticker schema and dynamically calculate differences
   const normalizeTickerData = (raw: any): TickerType | null => {
     if (!raw) return null;
 
-    // Check if payload is wrapped inside the new { market, ticker: { ... } } structure
     const target = raw.ticker ? raw.ticker : raw;
 
     const openPrice = Number(target.open || 0);
     const lastPrice = Number(target.lastPrice || target.close || 0);
 
-    // Calculate 24H Price Change metrics on the fly
     const priceChange = lastPrice - openPrice;
     const priceChangePercent =
       openPrice > 0 ? (priceChange / openPrice) * 100 : 0;
@@ -43,7 +40,6 @@ export const MarketBar = ({ market }: { market: string }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Fetch initial snapshot from REST API
     getTicker(market)
       .then((data) => {
         if (isMounted && data) {
@@ -53,10 +49,8 @@ export const MarketBar = ({ market }: { market: string }) => {
       })
       .catch(console.error);
 
-    // 2. Connect WebSocket
     wsClient.connect();
 
-    // 3. Define the update handler mapping the new WebSocket envelope
     const handleTickerUpdate = (data: any) => {
       if (!isMounted || !data) return;
 
@@ -67,17 +61,14 @@ export const MarketBar = ({ market }: { market: string }) => {
       }
     };
 
-    // 4. Subscribe to the market's ticker stream
     wsClient.subscribe(market, "TICKER", handleTickerUpdate);
 
-    // 5. Cleanup
     return () => {
       isMounted = false;
       wsClient.unsubscribe(market, "TICKER", handleTickerUpdate);
     };
   }, [market]);
 
-  // Safely parse numbers to prevent NaN rendering
   const changeAmount = Number(ticker?.priceChange || 0);
   const changePercent = Number(ticker?.priceChangePercent || 0);
   const isPositive = changeAmount >= 0;
@@ -85,11 +76,9 @@ export const MarketBar = ({ market }: { market: string }) => {
   return (
     <div className="flex flex-row items-center w-full h-[64px] bg-[#14151B] border-b border-slate-800/50 overflow-hidden select-none">
       <div className="flex items-center flex-row overflow-x-auto no-scrollbar w-full">
-        {/* Logos & Pair Name */}
         <Ticker market={market} />
 
         <div className="flex items-center flex-row space-x-8 pl-6">
-          {/* Last Price */}
           <div className="flex flex-col justify-center">
             <p
               className={`font-semibold text-lg tabular-nums ${
@@ -108,7 +97,6 @@ export const MarketBar = ({ market }: { market: string }) => {
             </p>
           </div>
 
-          {/* 24H Change */}
           <div className="flex flex-col">
             <p className="font-medium text-[11px] text-slate-500 mb-0.5">
               24H Change
@@ -130,7 +118,6 @@ export const MarketBar = ({ market }: { market: string }) => {
             </p>
           </div>
 
-          {/* 24H High */}
           <div className="flex flex-col">
             <p className="font-medium text-[11px] text-slate-500 mb-0.5">
               24H High
@@ -140,7 +127,6 @@ export const MarketBar = ({ market }: { market: string }) => {
             </p>
           </div>
 
-          {/* 24H Low */}
           <div className="flex flex-col">
             <p className="font-medium text-[11px] text-slate-500 mb-0.5">
               24H Low
@@ -150,7 +136,6 @@ export const MarketBar = ({ market }: { market: string }) => {
             </p>
           </div>
 
-          {/* 24H Volume */}
           <div className="flex flex-col">
             <p className="font-medium text-[11px] text-slate-500 mb-0.5">
               24H Volume
@@ -178,25 +163,21 @@ function Ticker({ market }: { market: string }) {
   return (
     <div className="flex items-center h-full shrink-0 pr-6 border-r border-slate-800/50 pl-4">
       <div className="flex flex-row relative -mr-2">
-        {/* Base Asset Icon */}
         <Image
           alt={base}
           className="z-10 rounded-full h-7 w-7 border-2 border-[#14151B]"
           src={getIconUrl(base)}
           width={28}
           height={28}
-          // Optional: fallback to a generic icon if the specific one doesn't exist
           onError={(e) => {
             if (!e.currentTarget.src.includes("generic_coin.svg")) {
               e.currentTarget.src = "/icons/generic_coin.svg";
             } else {
-              // If even the generic one fails, hide the broken icon to stop the loop
               e.currentTarget.style.display = "none";
             }
           }}
         />
 
-        {/* Quote Asset Icon */}
         <Image
           alt={quote}
           className="rounded-full h-7 w-7 border-2 border-[#14151B]"
@@ -207,7 +188,6 @@ function Ticker({ market }: { market: string }) {
             if (!e.currentTarget.src.includes("generic_coin.svg")) {
               e.currentTarget.src = "/icons/generic_coin.svg";
             } else {
-              // If even the generic one fails, hide the broken icon to stop the loop
               e.currentTarget.style.display = "none";
             }
           }}

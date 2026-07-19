@@ -1,4 +1,3 @@
-//only for export no db logic since mono repo will run this file
 export { prisma } from "./client.js";
 export { BalanceLedgerRepo } from "./repositories/balance.repo.js";
 export { CandleRepo } from "./repositories/candle.repo.js";

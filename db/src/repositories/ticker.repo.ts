@@ -4,10 +4,8 @@ export const TickerRepo = {
   get24hTicker: async (market: string) => {
     const [baseAsset, quoteAsset] = market.split("_");
 
-    // Calculate the exact timestamp 24 hours ago
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // 1. Fetch the 24h aggregated data using Prisma's queryRaw
     const result = await prisma.$queryRaw<any[]>`
         SELECT 
             MAX(high) as high,
@@ -22,15 +20,13 @@ export const TickerRepo = {
           AND created_at >= ${twentyFourHoursAgo}
     `;
 
-    // 2. Handle the edge case: What if no trades happened in the last 24h?
     if (!result || result.length === 0 || result[0].last_price === null) {
-      // Fallback: Just get the absolute most recent candle so we can show a price
       const fallback = await prisma.candle.findFirst({
         where: { base_asset: baseAsset, quote_asset: quoteAsset },
         orderBy: { created_at: "desc" },
       });
 
-      if (!fallback) return null; // Brand new market, absolutely zero trades ever
+      if (!fallback) return null;
 
       return {
         symbol: market,
@@ -44,7 +40,6 @@ export const TickerRepo = {
       };
     }
 
-    // 3. Process the live 24H data
     const row = result[0];
     const firstPrice = Number(row.first_price);
     const lastPrice = Number(row.last_price);

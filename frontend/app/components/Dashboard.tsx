@@ -141,7 +141,6 @@ export default function Dashboard() {
     };
   }, [fetchMarkets]);
 
-  // Group markets by Quote Asset dynamic helper
   const groupedMarkets = useMemo(() => {
     return markets.reduce((acc, m) => {
       const quote = m.quoteAsset || "USDT";
@@ -322,7 +321,6 @@ export default function Dashboard() {
           ) : (
             Object.entries(groupedMarkets).map(([quote, list]) => (
               <div key={quote} className="flex flex-col gap-4">
-                {/* Hub Header Block */}
                 <div className="flex items-center gap-3 pl-2">
                   <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center border border-slate-800 shrink-0">
                     {/* <Image
@@ -347,7 +345,6 @@ export default function Dashboard() {
                   </h3>
                 </div>
 
-                {/* Dense Card Grid (referencing card proportions in Screenshot 2026-07-16 at 3.11.29 PM.png) */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {list.map((m) => {
                     const change = m.change24h || 0;
@@ -361,7 +358,6 @@ export default function Dashboard() {
                         }
                         className="relative bg-[#14151B] border border-slate-900 rounded-2xl p-5 hover:border-slate-700/80 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between h-[160px] group"
                       >
-                        {/* Upper card data */}
                         <div className="z-10">
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5">

@@ -27,7 +27,6 @@ export default function BalancePage() {
   const [assets, setAssets] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal Control States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"deposit" | "withdraw">("deposit");
   const [selectedAsset, setSelectedAsset] = useState("");
@@ -35,7 +34,6 @@ export default function BalancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   useEffect(() => {
-    // Attempt to hydrate state from LocalStorage immediately
     const cachedBalances = localStorage.getItem("cached_balances");
     const cachedAssets = localStorage.getItem("cached_assets");
 
@@ -47,7 +45,6 @@ export default function BalancePage() {
   }, []);
 
   const loadRequiredData = async () => {
-    // Don't set isLoading(true) if we already have cached data
     try {
       const [balanceRes, assetList] = await Promise.allSettled([
         getUserBalance(getActiveUser()?.user_id),
@@ -72,7 +69,6 @@ export default function BalancePage() {
           setSelectedAsset(assetList.value[0]);
       }
     } catch (error) {
-      // Silently fail if cache exists
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +102,6 @@ export default function BalancePage() {
     }
   };
 
-  // Static rates for valuation index
   const getINRValue = (asset: string, qty: number) => {
     const rates: { [key: string]: number } = {
       INR: 1,
