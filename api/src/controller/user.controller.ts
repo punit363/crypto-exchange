@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { generateTransactionId, generateUserId } from "../utils";
 import { EngineResponse, UserData } from "../types/types";
 import bcrypt from "bcrypt";
-import { prisma } from "@exchange/db";
+import { prisma, UserRepo } from "@exchange/db";
 import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 
@@ -88,7 +88,7 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Error in order/registerUser:", error);
+    console.error("Error in user/registerUser:", error);
     return res.status(500).send({ error: "Internal Server Error" });
   }
 };
@@ -177,7 +177,7 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Error in order/addBalance:", error);
+    console.error("Error in user/updateBalance:", error);
     return res.status(500).send({ error: "Internal Server Error" });
   }
 };
@@ -230,7 +230,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Error in order/addBalance:", error);
+    console.error("Error in user/fetchUserBalance:", error);
     return res.status(500).send({ error: "Internal Server Error" });
   }
 };
@@ -269,9 +269,41 @@ const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Error in order/addBalance:", error);
+    console.error("Error in user/fetchAllAssets:", error);
     return res.status(500).send({ error: "Internal Server Error" });
   }
 };
 
-export { registerUser, updateBalance, fetchUserBalance, fetchAllAssets };
+const fetchUserDetails = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user_id as string;
+
+    const user_data = await UserRepo.findById(user_id);
+
+    if (!user_data) {
+      throw Error(`User data does not exist for User ID: ${user_id}`);
+    }
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          user_data,
+          `User data found for User ID: ${user_id}`,
+          "SUCCESS",
+          1
+        )
+      );
+  } catch (error) {
+    console.error("Error in user/fetchUserDetail:", error);
+    return res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+export {
+  registerUser,
+  updateBalance,
+  fetchUserBalance,
+  fetchAllAssets,
+  fetchUserDetails,
+};
