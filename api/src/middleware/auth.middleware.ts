@@ -22,13 +22,14 @@ export const authMiddleware = async (
     } else if (req.cookies?.access_token) {
       accessToken = req.cookies.access_token;
     }
-
+    console.log(accessAuthHeader,"+++++++++++++");
     if (!accessToken) {
       res.status(401).json({ message: "Unauthorized: missing access token" });
       return;
     }
 
     const payload = verifyAccessToken(accessToken) as JwtPayload;
+    console.log(payload,"-------+++++++++++++");
 
     if (!payload.user_id) {
       res.status(401).json({ message: "Unauthorized: invalid token payload" });
@@ -37,7 +38,6 @@ export const authMiddleware = async (
 
     req.user_id = payload.user_id;
     next();
-   
   } catch (refreshErr: any) {
     if (refreshErr.message === "Token has expired") {
       res.status(401).json({ message: "Session expired: please log in again" });

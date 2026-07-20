@@ -27,7 +27,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const accessToken = localStorage.getItem("access_token");
+      const accessToken = getCookie("access_token");
       if (accessToken) {
         config.headers["access_token"] = `Bearer ${accessToken}`;
       }
@@ -86,15 +86,12 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       return new Promise((resolve, reject) => {
-        const refreshToken = localStorage.getItem("refresh_token");
-
-        if (!refreshToken) {
-          handleWipeAndLogout();
-          return reject(error);
-        }
+        // We do NOT gate on '!refreshToken' anymore because JS is blind to the httpOnly refresh_token.
+        // We let withCredentials handle the background cookie transfer.
+        const localRefreshToken = getCookie("refresh_token");
 
         apiClient
-          .post("/auth/refresh", { refreshToken })
+          .post("/auth/refresh", { refreshToken: localRefreshToken })
           .then(({ data }) => {
             const freshData = data.data || data;
 
@@ -104,9 +101,7 @@ apiClient.interceptors.response.use(
               freshData.refreshToken || freshData.refresh_token;
 
             if (newAccessToken && newRefreshToken) {
-              localStorage.setItem("access_token", newAccessToken);
-              localStorage.setItem("refresh_token", newRefreshToken);
-
+              // Write access_token with httpOnly: false so Axios can read and append headers
               setCookie("access_token", newAccessToken, 60 * 60 * 24 * 7);
               setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7);
 
@@ -146,11 +141,9 @@ apiClient.interceptors.response.use(
   }
 );
 
-/**
- * Standard utility to clean local session keys and browser cookies
- */
 function handleWipeAndLogout() {
   if (typeof window !== "undefined") {
+    console.log("--------handleWipeAndLogout");
     localStorage.clear();
     deleteCookie("access_token");
     deleteCookie("refresh_token");
@@ -158,14 +151,10 @@ function handleWipeAndLogout() {
   }
 }
 
-
-
-
 function handleResponse(result: any) {
   if (!result) return null;
   return result.data !== undefined ? result.data : result;
 }
-
 
 export async function login(payload: {
   user_id?: string;
@@ -174,10 +163,8 @@ export async function login(payload: {
 }) {
   const response = await apiClient.post("/auth/login", payload);
   const data = handleResponse(response.data);
-
+  console.log("data--------------", data);
   if (typeof window !== "undefined" && data) {
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
     localStorage.setItem(
       "user_profile",
       JSON.stringify({
@@ -190,6 +177,7 @@ export async function login(payload: {
       })
     );
 
+    // Save tokens inside standard browser cookies
     setCookie("access_token", data.access_token, 60 * 60 * 24 * 7);
     setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
@@ -220,6 +208,7 @@ export async function logout() {
     console.warn("Backend token invalidation skipped:", error);
   } finally {
     if (typeof window !== "undefined") {
+      console.log("--------logout");
       localStorage.clear();
       deleteCookie("access_token");
       deleteCookie("refresh_token");
@@ -229,11 +218,22 @@ export async function logout() {
   }
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document !== "undefined") {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      return decodeURIComponent(parts.pop()?.split(";").shift() || "");
+    }
+  }
+  return null;
+}
+
 export function getActiveUser() {
   if (typeof window !== "undefined") {
     const profile = localStorage.getItem("user_profile");
-    const token = localStorage.getItem("access_token");
-    if (profile && token) {
+
+    if (profile) {
       try {
         return JSON.parse(profile);
       } catch {
@@ -243,7 +243,6 @@ export function getActiveUser() {
   }
   return null;
 }
-
 
 export async function getTicker(market: string) {
   const response = await apiClient.get(`/ticker?market=${market}`);
@@ -307,9 +306,9 @@ export async function updateUserBalance(payload: {
 
 export async function getAssets(): Promise<string[]> {
   const response = await apiClient.get("/asset");
-
   return response.data.data || response.data;
 }
+
 export async function cancelOrder(
   orderId: string,
   side: string,

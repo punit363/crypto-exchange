@@ -283,12 +283,13 @@ const fetchUserDetails = async (req: Request, res: Response): Promise<any> => {
     if (!user_data) {
       throw Error(`User data does not exist for User ID: ${user_id}`);
     }
+    const { password, ...user } = user_data;
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          user_data,
+          user,
           `User data found for User ID: ${user_id}`,
           "SUCCESS",
           1

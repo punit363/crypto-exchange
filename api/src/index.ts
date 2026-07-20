@@ -4,6 +4,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser"
 import router from "./routes/routes";
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(
     allowedHeaders: ["Content-Type", "access_token", "refresh_token"],
   })
 );
+app.use(cookieParser());
 app.use(express.json());
 app.use("/api/v1", router);
 

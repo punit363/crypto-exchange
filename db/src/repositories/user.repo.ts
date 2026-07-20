@@ -5,14 +5,6 @@ export const UserRepo = {
   findById: async (user_id: string) => {
     return prisma.user.findUnique({
       where: { user_id },
-      select: {
-        user_id: true,
-        first_name: true,
-        last_name: true,
-        email: true,
-        age: true,
-        phone: true,
-      },
     });
   },
 
