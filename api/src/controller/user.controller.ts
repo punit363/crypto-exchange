@@ -268,9 +268,18 @@ const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
           1
         )
       );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in user/fetchAllAssets:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status(500)
+      .send(
+        generateErrorResponse(
+          error.message ||
+            "An unexpected error occurred while fetching assets.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
