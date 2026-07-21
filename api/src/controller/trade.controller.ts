@@ -1,35 +1,20 @@
 import { prisma } from "@exchange/db";
 import { Request, Response } from "express";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
+import { AppError } from "../helper/error";
 
 const getTrades = async (req: Request, res: Response): Promise<any> => {
   try {
     const market = req.query.market as string;
 
     if (!market) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Missing query parameter from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const [baseAsset, quoteAsset] = market.split("_");
 
     if (!baseAsset || !quoteAsset) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Invalid market format. Use BASE_QUOTE.",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Invalid Market format. Use BASE_QUOTE`, 400);
     }
 
     const recentTrades = await prisma.trade.findMany({
@@ -44,15 +29,7 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (recentTrades.length <= 0) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "Recent Trades does not exist for this market",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Recent trades does not exist for this market`, 404);
     }
 
     const formattedTrades = recentTrades.map((trade) => ({
@@ -74,8 +51,17 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Failed to fetch recent trades:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error in trade/getTrades:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
