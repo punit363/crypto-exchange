@@ -159,7 +159,7 @@ function Ticker({ market }: { market: string }) {
   const [base, quote] = market.split("_");
 
   const getIconUrl = (symbol: string) =>
-    `/icons/${symbol.toLowerCase()}_coin.svg`;
+    `/icons/${symbol.toLowerCase()}_coin.png`;
 
   return (
     <div className="flex items-center h-full shrink-0 pr-6 border-r border-slate-800/50 pl-4">

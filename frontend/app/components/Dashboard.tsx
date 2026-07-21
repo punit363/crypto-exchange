@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthGuard } from "../components/AuthGuard";
 import { getActiveUser, apiClient } from "../utils/httpClient";
 import { CONFIG } from "../config";
+import Image from "next/image";
 
 const SCALE = CONFIG.SATOSHI_SCALE;
 
@@ -322,8 +323,8 @@ export default function Dashboard() {
               <div key={quote} className="flex flex-col gap-4">
                 <div className="flex items-center gap-3 pl-2">
                   <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center border border-slate-800 shrink-0">
-                    {/* <Image
-                      src={`/icons/${quote.toLowerCase()}_coin.svg`}
+                    <Image
+                      src={`/icons/${quote.toLowerCase()}_coin.png`}
                       alt={quote}
                       width={28}
                       height={28}
@@ -337,7 +338,7 @@ export default function Dashboard() {
                           e.currentTarget.style.display = "none";
                         }
                       }}
-                    /> */}
+                    />
                   </div>
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                     {quote} Markets Hub
@@ -366,8 +367,8 @@ export default function Dashboard() {
                               </span>
                             </span>
 
-                            {/* <Image
-                              src={`/icons/${m.baseAsset.toLowerCase()}_coin.svg`}
+                            <Image
+                              src={`/icons/${m.baseAsset.toLowerCase()}_coin.png`}
                               alt={m.baseAsset}
                               width={28}
                               height={28}
@@ -380,13 +381,13 @@ export default function Dashboard() {
                                   )
                                 ) {
                                   e.currentTarget.src =
-                                    "/icons/generic_coin.svg";
+                                    "/icons/generic_coin.png";
                                 } else {
                                   // If even the generic one fails, hide the broken icon to stop the loop
                                   e.currentTarget.style.display = "none";
                                 }
                               }}
-                            /> */}
+                            />
                           </div>
 
                           <p className="text-xl font-bold text-white mt-2.5 tracking-tight tabular-nums">
