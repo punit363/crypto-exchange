@@ -12,7 +12,7 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
     const limit = Math.min(parseInt(req.query.limit as string) || 500, 1000);
 
     if (!market || !reqInterval || !startTime || !endTime) {
-      throw new AppError(`Required request parameters missing`, 400);
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const [baseAsset, quoteAsset] = market.split("_");
@@ -86,7 +86,7 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
       );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    console.error("Error fetching klines from database:", error);
+    console.error("Error in Kline/fetchKline:", error);
     return res
       .status((error as { status_code?: number })?.status_code || 500)
       .send(
