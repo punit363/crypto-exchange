@@ -1,10 +1,10 @@
 import axios from "axios";
+import { CONFIG } from "./config.js";
 
-const BASE_URL = "http://localhost:8000/api/v1";
-const QUOTE = "BTC";
-const BASE = "USDT";
-const SCALE = 100_000_000;
-
+const CLIENT_URL = CONFIG.CLIENT_URL;
+const BASE = CONFIG.MM_BASE_ASSET;
+const QUOTE = CONFIG.MM_QUOTE_ASSET;
+const SCALE = CONFIG.SCALE;
 // User credentials (ensure this user is seeded in your DB)
 const USER_CONFIG = {
   email: "punit@gmail.com", // Or user_id
@@ -16,7 +16,7 @@ let authToken: string | null = null;
 async function authenticate() {
   try {
     console.log("🔑 Authenticating Market Maker...");
-    const response = await axios.post(`${BASE_URL}/auth/login`, {
+    const response = await axios.post(`${CLIENT_URL}/auth/login`, {
       email: USER_CONFIG.email,
       password: USER_CONFIG.password,
     });
@@ -41,7 +41,7 @@ async function runMarketMaker() {
   setInterval(async () => {
     try {
       const side = Math.random() > 0.5 ? "buy" : "sell";
-     const price = (10000 + Math.floor(Math.random() * 1000)) * SCALE;
+      const price = (10000 + Math.floor(Math.random() * 1000)) * SCALE;
       const quantity = Math.floor(Math.random() * 100) * SCALE;
 
       console.log(
@@ -51,7 +51,7 @@ async function runMarketMaker() {
       );
 
       await axios.post(
-        `${BASE_URL}/order`,
+        `${CLIENT_URL}/order`,
         {
           price,
           quantity,

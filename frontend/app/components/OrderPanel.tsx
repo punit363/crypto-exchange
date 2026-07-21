@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { getUserOrders, cancelOrder } from "../utils/httpClient";
 import { wsClient } from "../utils/wsClient"; 
 import { toast } from "react-hot-toast";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function OrdersPanel({ market }: { market: string }) {
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");

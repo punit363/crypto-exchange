@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthGuard } from "../components/AuthGuard";
 import {
   getActiveUser,
@@ -9,8 +9,9 @@ import {
   getAssets,
 } from "../utils/httpClient";
 import { toast } from "react-hot-toast";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 interface AssetBalance {
   available: number;

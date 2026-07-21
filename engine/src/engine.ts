@@ -2,8 +2,9 @@ import fs from "fs";
 import { Orderbook, Fills } from "./orderbook";
 import RedisHandler from "./redis";
 import { generateCandleId } from "./utils";
+import { CONFIG } from "./config.js";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SCALE;
 interface UserBalance {
   [key: string]: {
     available: number;
@@ -11,7 +12,7 @@ interface UserBalance {
   };
 }
 
-const SUPPORTED_MARKETS = [
+let SUPPORTED_MARKETS = [
   { base: "BTC", quote: "USDT" },
   { base: "ETH", quote: "USDT" },
   { base: "SOL", quote: "USDT" },
@@ -1007,7 +1008,7 @@ class Engine {
     const redis = await RedisHandler.createInstance();
     try {
       const user_id = user.user_id;
-      const asset = user.asset || SUPPORTED_MARKETS[0].base; 
+      const asset = user.asset || SUPPORTED_MARKETS[0].base;
       const amount = user.amount || 0;
 
       if (!user_id) {

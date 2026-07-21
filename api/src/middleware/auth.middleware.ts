@@ -22,14 +22,12 @@ export const authMiddleware = async (
     } else if (req.cookies?.access_token) {
       accessToken = req.cookies.access_token;
     }
-    console.log(accessAuthHeader,"+++++++++++++");
     if (!accessToken) {
       res.status(401).json({ message: "Unauthorized: missing access token" });
       return;
     }
 
     const payload = verifyAccessToken(accessToken) as JwtPayload;
-    console.log(payload,"-------+++++++++++++");
 
     if (!payload.user_id) {
       res.status(401).json({ message: "Unauthorized: invalid token payload" });

@@ -4,10 +4,9 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AuthGuard } from "../components/AuthGuard";
 import { getActiveUser, apiClient } from "../utils/httpClient";
-import { toast } from "react-hot-toast";
-import Image from "next/image";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000; // 10^8 Satoshi Multiplier
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 interface MarketData {
   baseAsset: string;

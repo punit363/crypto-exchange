@@ -18,7 +18,7 @@ class RedisHandler {
   };
 
   getTradeDetail = async () => {
-    return await this.client.brPop("db_update", 0);
+    return await this.client.brPop("DB_UPDATE", 0);
   };
 }
 

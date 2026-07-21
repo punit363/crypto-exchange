@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { wsClient } from "@/app/utils/wsClient";
 import { getDepth } from "@/app/utils/httpClient";
+import { CONFIG } from "@/app/config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function Depth({ market }: { market: string }) {
   const [bids, setBids] = useState<[string, string][]>([]);

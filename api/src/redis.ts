@@ -40,7 +40,7 @@ class RedisHandler {
       engine_request_id: engineRequestId,
       ...data,
     };
-    await this.client.lPush("message", JSON.stringify(engine_data));
+    await this.client.lPush("MESSAGE", JSON.stringify(engine_data));
     return new Promise((resolve, reject) => {
       this.subscriber.subscribe(engineRequestId, async (message) => {
         try {

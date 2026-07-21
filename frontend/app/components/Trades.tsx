@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { wsClient } from "../utils/wsClient";
 import { getTrades } from "../utils/httpClient";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 interface TradeEvent {
   tradeId: string;

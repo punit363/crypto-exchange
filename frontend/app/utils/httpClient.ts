@@ -1,24 +1,15 @@
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { Depth, KLine, Ticker } from "./types";
+import {  KLine, Ticker } from "./types";
+import { CONFIG } from "../config";
 
-const BASE_URL = "http://localhost:8000/api/v1";
-
-function setCookie(name: string, value: string, maxAgeSeconds: number) {
-  if (typeof document !== "undefined") {
-    const secureFlag = window.location.protocol === "https:" ? "Secure;" : "";
-    document.cookie = `${name}=${encodeURIComponent(
-      value
-    )}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax; ${secureFlag}`;
-  }
-}
+const BASE_URL =CONFIG.API_URL
 
 function deleteCookie(name: string) {
   if (typeof document !== "undefined") {
     document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax;`;
   }
 }
-
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
@@ -75,8 +66,7 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            originalRequest.headers["access_token"] = `Bearer ${token}`;
+          .then(() => {
             return apiClient(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -85,48 +75,25 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      console.warn(
+        "[HTTP CLIENT] Access Token Expired. Initiating silent background rotation..."
+      );
+
       return new Promise((resolve, reject) => {
-        // We do NOT gate on '!refreshToken' anymore because JS is blind to the httpOnly refresh_token.
-        // We let withCredentials handle the background cookie transfer.
-        const localRefreshToken = getCookie("refresh_token");
-
         apiClient
-          .post("/auth/refresh", { refreshToken: localRefreshToken })
-          .then(({ data }) => {
-            const freshData = data.data || data;
-
-            const newAccessToken =
-              freshData.accessToken || freshData.access_token;
-            const newRefreshToken =
-              freshData.refreshToken || freshData.refresh_token;
-
-            if (newAccessToken && newRefreshToken) {
-              // Write access_token with httpOnly: false so Axios can read and append headers
-              setCookie("access_token", newAccessToken, 60 * 60 * 24 * 7);
-              setCookie("refresh_token", newRefreshToken, 60 * 60 * 24 * 7);
-
-              apiClient.defaults.headers.common[
-                "access_token"
-              ] = `Bearer ${newAccessToken}`;
-              originalRequest.headers[
-                "access_token"
-              ] = `Bearer ${newAccessToken}`;
-
-              processQueue(null, newAccessToken);
-
-              resolve(apiClient(originalRequest));
-            } else {
-              throw new Error(
-                "Returned payload does not contain required token contract structures."
-              );
-            }
+          .post("/auth/refresh", {})
+          .then(() => {
+            console.log(
+              "[HTTP CLIENT] Session rotated successfully. Retrying failed requests..."
+            );
+            processQueue(null);
+            resolve(apiClient(originalRequest));
           })
           .catch((err) => {
             console.error(
-              "[AXIOS HANDSHAKE FAILURE] Critical session rotation fail:",
-              err.message
+              "[HTTP CLIENT] Silent rotation failed. Clearing session..."
             );
-            processQueue(err, null);
+            processQueue(err);
             handleWipeAndLogout();
             toast.error("Session expired. Please log in again.");
             reject(err);
@@ -176,10 +143,6 @@ export async function login(payload: {
         age: data.age,
       })
     );
-
-    // Save tokens inside standard browser cookies
-    setCookie("access_token", data.access_token, 60 * 60 * 24 * 7);
-    setCookie("refresh_token", data.refresh_token, 60 * 60 * 24 * 7);
 
     window.dispatchEvent(new Event("auth_change"));
     toast.success("Logged in successfully!");

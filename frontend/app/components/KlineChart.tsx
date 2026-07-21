@@ -5,9 +5,10 @@ import { ChartManager } from "../utils/ChartManager";
 import { getKlines } from "../utils/httpClient";
 import { KLine } from "../utils/types";
 import { wsClient } from "../utils/wsClient";
+import { CONFIG } from "../config";
 
 const INTERVALS = ["1m", "5m", "15m", "1h", "1d"];
-const SCALE = 100000000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function KlineChart({ market }: { market: string }) {
   const chartRef = useRef<HTMLDivElement>(null);

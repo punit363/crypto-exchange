@@ -1,8 +1,9 @@
 //@ts-ignore
 import { WebSocketServer } from "ws";
 import RedisHandler from "./redis";
+import { CONFIG } from "./config";
 
-const wss = new WebSocketServer({ port: 7001 });
+const wss = new WebSocketServer({ port:CONFIG.WS_PORT});
 
 wss.on("connection", (ws: any) => {
   console.log("🟢 Client connected to WS");

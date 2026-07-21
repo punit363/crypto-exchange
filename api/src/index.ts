@@ -10,7 +10,7 @@ import router from "./routes/routes";
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:3000", 
+    origin: process.env.CORS_ACCEPTED_ENDPOINT, 
     credentials: true,              
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "access_token", "refresh_token"],
@@ -20,6 +20,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use("/api/v1", router);
 
-app.listen(8000, () => {
-  console.log("listening app on port", 8000);
+app.listen(process.env.API_PORT, () => {
+  console.log("listening app on port", process.env.API_PORT);
 });

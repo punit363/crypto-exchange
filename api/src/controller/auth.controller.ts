@@ -58,7 +58,9 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: process.env.ACCESS_COOKIE_AGE
+        ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
+        : 15 * 60 * 1000,
       path: "/",
     });
 
@@ -66,27 +68,33 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: process.env.REFRESH_COOKIE_AGE
+        ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
+        : 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
 
-    return res.status(200).send(
-      generateAPIResponse(
-        {
-          user_id,
-          email: user.email,
-          phone: user.phone,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          age: user.age,
-          access_token,
-          refresh_token,
-        },
-        "User LoggedIn successfully",
-        "SUCCESS",
-        1
-      )
-    );
+    const user_data = {
+      user_id: user.user_id,
+      email: user.email,
+      phone: user.phone,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      age: user.age,
+    };
+
+    console.log(user_data, "________________");
+
+    return res
+      .status(200)
+      .send(
+        generateAPIResponse(
+          user_data,
+          "User LoggedIn successfully",
+          "SUCCESS",
+          1
+        )
+      );
   } catch (error) {
     console.error("Error with User Login:", error);
     res.status(500).json({ error: "Failed to Login" });
@@ -118,7 +126,6 @@ const logoutUser = async (req: Request, res: Response): Promise<any> => {
 
 const refreshTokens = async (req: Request, res: Response): Promise<any> => {
   try {
-    console.log("Refresh Token Request Headers:========================");
     let refreshToken: string | undefined = undefined;
     const refreshAuthHeader = req.headers.refresh_token as string;
 
@@ -176,7 +183,9 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge:  7 * 24 * 60 * 60 * 1000,
+        maxAge: process.env.ACCESS_COOKIE_AGE
+          ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
+          : 15 * 60 * 1000,
         path: "/",
       });
 
@@ -184,10 +193,12 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: process.env.REFRESH_COOKIE_AGE
+          ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
+          : 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
-    
+
       return res.status(200).send(
         generateAPIResponse(
           {

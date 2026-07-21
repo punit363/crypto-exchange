@@ -1,8 +1,8 @@
 import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
+import { CONFIG } from "./config.js";
 
-const SCALE = 100_000_000;
-
+const SCALE = CONFIG.SCALE
 export interface Order {
   orderId: string;
   userID: string;

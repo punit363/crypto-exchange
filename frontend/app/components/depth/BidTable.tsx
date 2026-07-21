@@ -1,4 +1,6 @@
-const SCALE = 100_000_000
+import { CONFIG } from "@/app/config";
+
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export const BidTable = ({ bids }: {bids: [string, string][]}) => {
     let currentTotal = 0; 

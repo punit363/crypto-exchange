@@ -67,7 +67,9 @@ export async function middleware(request: NextRequest) {
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: process.env.ACCESS_COOKIE_AGE
+        ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
+        : 15 * 60 * 1000,
         path: "/",
       });
 
@@ -76,7 +78,9 @@ export async function middleware(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: process.env.REFRESH_COOKIE_AGE
+        ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
+        : 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
 

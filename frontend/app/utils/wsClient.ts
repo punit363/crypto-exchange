@@ -1,9 +1,11 @@
+import { CONFIG } from "../config";
+
 type Callback = (data: any) => void;
 
 class WSManager {
   private static instance: WSManager;
   private ws: WebSocket | null = null;
-  private url = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:7001";
+  private url = CONFIG.WS_URL;
 
   private callbacks: Map<string, Callback[]> = new Map();
   private bufferedMessages: any[] = [];
@@ -26,7 +28,7 @@ class WSManager {
 
     this.isConnecting = true;
 
-    this.url = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:7001";
+    this.url = CONFIG.WS_URL;
 
     console.log(`⏳ Attempting to connect to WS at ${this.url}...`);
     this.ws = new WebSocket(this.url);

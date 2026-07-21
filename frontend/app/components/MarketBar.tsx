@@ -5,8 +5,9 @@ import Image from "next/image";
 import { Ticker as TickerType } from "../utils/types";
 import { getTicker } from "../utils/httpClient";
 import { wsClient } from "../utils/wsClient";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export const MarketBar = ({ market }: { market: string }) => {
   const [ticker, setTicker] = useState<TickerType | null>(null);

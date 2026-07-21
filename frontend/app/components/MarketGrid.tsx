@@ -2,8 +2,9 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { CONFIG } from "../config";
 
-const SCALE = 100_000_000;
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 const Sparkline = ({
   points,

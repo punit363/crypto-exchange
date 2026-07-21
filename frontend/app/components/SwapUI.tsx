@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
-import { createOrder } from "../utils/httpClient";
 
-const MOCK_USER_ID_1 = "usr_6q9g3syt014";
-const MOCK_USER_ID_2 = "usr_xslwr9hnet";
-const SCALE = 100_000_000;
+import { useState, useEffect } from "react";
+import { createOrder, getActiveUser } from "../utils/httpClient";
+import { CONFIG } from "../config";
+import { toast } from "react-hot-toast";
+
+const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function SwapUI({ market }: { market: string }) {
   const [baseAsset, quoteAsset] = market.split("_");
@@ -13,12 +14,32 @@ export function SwapUI({ market }: { market: string }) {
 
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setCurrentUser(getActiveUser());
+
+    const handleAuthChange = () => {
+      setCurrentUser(getActiveUser());
+    };
+
+    window.addEventListener("auth_change", handleAuthChange);
+    return () => {
+      window.removeEventListener("auth_change", handleAuthChange);
+    };
+  }, []);
 
   const total = Number(price) * Number(quantity) || 0;
 
   const handleSubmit = async () => {
+    console.log(currentUser, "user----------");
+    if (!currentUser?.user_id) {
+      toast.error("Please log in to place an order.");
+      return;
+    }
+
     if (!quantity || (type === "limit" && !price)) return;
 
     setIsSubmitting(true);
@@ -40,7 +61,7 @@ export function SwapUI({ market }: { market: string }) {
       }
 
       await createOrder({
-        user_id: MOCK_USER_ID_1,
+        user_id: currentUser.user_id,
         price: finalPrice,
         quantity: finalQuantity,
         side: activeTab,
@@ -64,6 +85,7 @@ export function SwapUI({ market }: { market: string }) {
 
   return (
     <div className="flex flex-col w-full bg-[#14151B] border border-slate-800/50 rounded-lg p-4">
+      {/* Side Selector */}
       <div className="flex flex-row bg-[#0E1015] rounded-lg p-1 mb-4">
         <button
           onClick={() => setActiveTab("buy")}
@@ -87,6 +109,7 @@ export function SwapUI({ market }: { market: string }) {
         </button>
       </div>
 
+      {/* Order Type Tabs */}
       <div className="flex flex-row gap-4 mb-4 border-b border-slate-800/50 pb-2">
         {["limit", "market"].map((t) => (
           <button
@@ -101,14 +124,21 @@ export function SwapUI({ market }: { market: string }) {
         ))}
       </div>
 
+      {/* Order Entry Form */}
       <div className="flex flex-col gap-4">
+        {/* Account Status Badge */}
         <div className="flex items-center justify-between">
-          <p className="text-xs font-normal text-slate-500">Balance</p>
-          <p className="font-medium text-xs text-slate-300">
-            0.00 {activeTab === "buy" ? quoteAsset : baseAsset}
+          <p className="text-xs font-normal text-slate-500">Account Context</p>
+          <p className="font-medium text-xs text-slate-300 truncate max-w-[180px]">
+            {currentUser
+              ? currentUser.first_name ||
+                currentUser.email ||
+                currentUser.user_id
+              : "Not Logged In"}
           </p>
         </div>
 
+        {/* Price Input */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between">
             <p className="text-xs text-slate-500">Price</p>
@@ -134,6 +164,7 @@ export function SwapUI({ market }: { market: string }) {
           </div>
         </div>
 
+        {/* Quantity / Budget Input */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between">
             <p className="text-xs text-slate-500">{amountLabel}</p>
@@ -157,6 +188,7 @@ export function SwapUI({ market }: { market: string }) {
           </div>
         </div>
 
+        {/* Order Calculation */}
         <div className="flex justify-between items-center py-1">
           <p className="text-xs text-slate-500">Order Value</p>
           <p className="text-xs font-medium text-white">
@@ -165,18 +197,23 @@ export function SwapUI({ market }: { market: string }) {
           </p>
         </div>
 
+        {/* Submit Execution Button */}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !currentUser}
           className={`mt-2 font-semibold h-12 rounded-xl text-sm text-white active:scale-[0.98] transition-all outline-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
-            activeTab === "buy"
+            !currentUser
+              ? "bg-slate-800 text-slate-400 cursor-not-allowed"
+              : activeTab === "buy"
               ? "bg-[#00C278] hover:bg-[#00a868]"
               : "bg-[#F94D5C] hover:bg-[#e04552]"
           }`}
         >
           {isSubmitting ? (
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : !currentUser ? (
+            "Log In to Place Order"
           ) : activeTab === "buy" ? (
             `Buy ${baseAsset}`
           ) : (
@@ -184,6 +221,7 @@ export function SwapUI({ market }: { market: string }) {
           )}
         </button>
 
+        {/* Execution Flags */}
         <div className="flex flex-row gap-4 mt-2">
           {["Post Only", "IOC"].map((opt) => (
             <div
