@@ -5,21 +5,14 @@ import bcrypt from "bcrypt";
 import { prisma, UserRepo } from "@exchange/db";
 import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
+import { AppError } from "../helper/error";
 
 const registerUser = async (req: Request, res: Response): Promise<any> => {
   try {
     const { firstname, lastname, age, email, phone, password } = req.body;
 
     if (!firstname || !lastname || !age || !email || !phone || !password) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "Missing required fields from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const user_id = generateUserId();
@@ -48,15 +41,7 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
     })) as EngineResponse;
 
     if (engine_response.eng_status_code === 0) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            engine_response.eng_status_code
-          )
-        );
+      throw new AppError(engine_response.message, 400);
     }
 
     const newUser = (await prisma.user.create({
@@ -64,15 +49,7 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
     })) as UserData;
 
     if (!newUser) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "Error creating user. Please try again",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Error creating user. Please try again`, 400);
     }
 
     const { password: _, ...userWithoutPassword } = newUser;
@@ -88,8 +65,17 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/registerUser:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
@@ -99,15 +85,7 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
     const user_id = req.user_id;
 
     if (!user_id || !amount || !asset || !type) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Missing required fields from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const user = await prisma.user.findFirst({
@@ -117,29 +95,13 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (!user) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "User not found for the corresponding User ID",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`User not found`, 404);
     }
 
     const depositAmount = Number(amount);
 
     if (isNaN(depositAmount) || depositAmount <= 0) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Amount must be a valid number greater than zero",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Amount must be a valid positive number`, 400);
     }
 
     const transaction = {
@@ -153,17 +115,9 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
       type: "BALANCE",
       transaction,
     })) as EngineResponse;
-    console.log(engine_response, "engine_response");
+
     if (!engine_response.data) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            0
-          )
-        );
+      throw new AppError(engine_response.message, 400);
     }
 
     return res
@@ -177,8 +131,17 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/updateBalance:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
@@ -187,15 +150,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
     const user_id = req.user_id;
 
     if (!user_id) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Missing required fields from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const redis = await RedisHandler.createInstance();
@@ -207,16 +162,9 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
         user_id,
       },
     })) as EngineResponse;
+
     if (engine_response.eng_status_code === 0) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            engine_response.eng_status_code
-          )
-        );
+      throw new AppError(engine_response.message, 400);
     }
 
     return res
@@ -230,8 +178,17 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/fetchUserBalance:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
@@ -247,15 +204,7 @@ const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
     })) as EngineResponse;
 
     if (engine_response.eng_status_code === 0) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            engine_response.eng_status_code
-          )
-        );
+      throw new AppError(engine_response.message, 400);
     }
 
     return res
@@ -305,8 +254,17 @@ const fetchUserDetails = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/fetchUserDetail:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
