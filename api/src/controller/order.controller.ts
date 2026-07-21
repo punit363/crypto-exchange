@@ -4,6 +4,7 @@ import { generateOrderId } from "../utils";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { EngineResponse } from "../types/types";
 import { OrderRepo } from "@exchange/db";
+import { AppError } from "../helper/error";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -11,15 +12,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
 
     const user_id = req.user_id as string;
     if (!user_id || !side || !type || !baseAsset || !quoteAsset) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Required fields are missing from the request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const order_id = generateOrderId();
@@ -55,15 +48,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
     })) as EngineResponse;
 
     if (!engine_response.data) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            0
-          )
-        );
+      throw new AppError(engine_response.message, 404);
     }
 
     return res
@@ -77,35 +62,34 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in order/placeOrder:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
-const getOrder = async (req: Request, res: Response): Promise<any> => {
+const getOrders = async (req: Request, res: Response): Promise<any> => {
   try {
     const user_id = req.user_id as string;
     const market = req.query.market as string;
     const type = req.query.type as "open" | "history";
 
     if (!user_id || !market || !type) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Required parameters are missing from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const order_history = await OrderRepo.getUserOrders(user_id, market, type);
 
     if (order_history.length <= 0) {
-      return res
-        .status(404)
-        .send(generateErrorResponse("No orders found", "FAILED", 0));
+      throw new AppError(`Order not found`, 404);
     }
 
     return res
@@ -119,8 +103,17 @@ const getOrder = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Failed to fetch orders:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error in order/getOrders:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
@@ -130,15 +123,7 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
     const user_id = req.user_id as string;
 
     if (!order_id) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Required request parameters are missing from request",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Missing required request parameters`, 400);
     }
 
     const redis = await RedisHandler.createInstance();
@@ -158,15 +143,7 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
     })) as EngineResponse;
 
     if (!engine_response.data) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            engine_response.message,
-            engine_response.status,
-            0
-          )
-        );
+      throw new AppError(engine_response.message, 404);
     }
 
     return res
@@ -180,9 +157,18 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in order/cancelOrder:", error);
-    return res.status(500).send({ error: "Internal Server Error" });
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
-export { placeOrder, getOrder, cancelOrder };
+export { placeOrder, getOrders, cancelOrder };

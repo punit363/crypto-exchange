@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  getOrder,
+  getOrders,
   placeOrder,
   cancelOrder,
 } from "../controller/order.controller";
@@ -32,7 +32,7 @@ router.post("/auth/logout", authMiddleware, logoutUser);
 router.post("/auth/refresh", refreshTokens);
 
 router.post("/order", authMiddleware, placeOrder);
-router.get("/order", authMiddleware, getOrder);
+router.get("/order", authMiddleware, getOrders);
 router.delete("/order", authMiddleware, cancelOrder);
 
 router.get("/ticker", authMiddleware, fetchTickerData);
