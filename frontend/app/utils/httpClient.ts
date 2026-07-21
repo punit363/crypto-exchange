@@ -1,9 +1,9 @@
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import {  KLine, Ticker } from "./types";
+import { KLine, Ticker } from "./types";
 import { CONFIG } from "../config";
 
-const BASE_URL =CONFIG.API_URL
+const BASE_URL = CONFIG.API_URL;
 
 function deleteCookie(name: string) {
   if (typeof document !== "undefined") {
@@ -56,7 +56,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-
+    console.log(error);
     if (
       error.response &&
       error.response.status === 401 &&
@@ -130,7 +130,6 @@ export async function login(payload: {
 }) {
   const response = await apiClient.post("/auth/login", payload);
   const data = handleResponse(response.data);
-  console.log("data--------------", data);
   if (typeof window !== "undefined" && data) {
     localStorage.setItem(
       "user_profile",

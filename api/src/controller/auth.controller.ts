@@ -8,6 +8,7 @@ import {
   verifyRefreshToken,
 } from "../utils/auth.utils";
 import { JwtPayload } from "jsonwebtoken";
+import { AppError } from "../helper/error";
 
 const loginUser = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -29,34 +30,26 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (!user) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "User not found for this email/user_id",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(
+        `User data does not exist for User ID: ${user_id}`,
+        404
+      );
     }
 
     const is_password_correct = await bcrypt.compare(password, user.password);
 
     if (!is_password_correct) {
-      return res
-        .status(404)
-        .send(generateErrorResponse("Incorrect Password", "FAILED", 0));
+      throw new AppError(`Incorrect User Credentials`, 400);
     }
 
     const access_token = generateAccessToken(user.user_id);
     const refresh_token = generateRefreshToken(user.user_id);
 
     await UserRepo.updateRefreshToken(user.user_id, refresh_token);
-    const isProduction = process.env.NODE_ENV === "production";
 
     res.cookie("access_token", access_token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: true,
       sameSite: "lax",
       maxAge: process.env.ACCESS_COOKIE_AGE
         ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
@@ -66,7 +59,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
 
     res.cookie("refresh_token", refresh_token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: true,
       sameSite: "lax",
       maxAge: process.env.REFRESH_COOKIE_AGE
         ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
@@ -83,21 +76,23 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       age: user.age,
     };
 
-    console.log(user_data, "________________");
-
     return res
       .status(200)
       .send(
-        generateAPIResponse(
-          user_data,
-          "User LoggedIn successfully",
-          "SUCCESS",
-          1
+        generateAPIResponse(user_data, "User login successfull", "SUCCESS", 1)
+      );
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error in User/Login:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while login.",
+          "FAILED",
+          0
         )
       );
-  } catch (error) {
-    console.error("Error with User Login:", error);
-    res.status(500).json({ error: "Failed to Login" });
   }
 };
 
@@ -106,9 +101,7 @@ const logoutUser = async (req: Request, res: Response): Promise<any> => {
     const user_id = req.user_id;
 
     if (!user_id) {
-      return res
-        .status(400)
-        .send(generateErrorResponse("User ID is missing.", "FAILED", 0));
+      throw new AppError(`User ID mising in request`, 400);
     }
 
     await UserRepo.updateRefreshToken(user_id, "");
@@ -119,8 +112,17 @@ const logoutUser = async (req: Request, res: Response): Promise<any> => {
         generateAPIResponse({}, "User Logged Out successfully", "SUCCESS", 1)
       );
   } catch (error) {
-    console.error("Error with User Logout:", error);
-    res.status(500).json({ error: "Failed to Logout" });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error in User/Logout:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
@@ -138,18 +140,14 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (!refreshToken) {
-      return res
-        .status(401)
-        .json({ message: "Unauthorized: missing refresh token" });
+      throw new AppError(`Unauthorized: missing refresh token`, 401);
     }
 
     try {
       const refreshPayload = verifyRefreshToken(refreshToken) as JwtPayload;
 
       if (!refreshPayload.user_id) {
-        return res
-          .status(401)
-          .json({ message: "Unauthorized: invalid refresh token payload" });
+        throw new AppError("Unauthorized: invalid refresh token payload", 401);
       }
 
       const dbUser = await UserRepo.fetchRefreshToken(refreshToken);
@@ -202,10 +200,6 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
       return res.status(200).send(
         generateAPIResponse(
           {
-            access_token,
-            refresh_token,
-            accessToken: access_token,
-            refreshToken: refresh_token,
             user_id: refreshPayload.user_id,
           },
           "Tokens refreshed successfully",
@@ -215,17 +209,22 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
       );
     } catch (refreshErr: any) {
       if (refreshErr.message === "Token has expired") {
-        return res
-          .status(401)
-          .json({ message: "Session expired: please log in again" });
+        throw new AppError("Session Expired: please login again", 401);
       }
-      return res
-        .status(401)
-        .json({ message: "Unauthorized: invalid refresh token" });
+      throw new AppError("Unauthorized: invalid refresh token", 401);
     }
   } catch (error) {
-    console.error("Error with Token Refresh Handshake:", error);
-    return res.status(500).json({ error: "Failed to Refresh" });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error in User/refreshTokens:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while refreshing.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
