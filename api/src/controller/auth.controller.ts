@@ -15,11 +15,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
     const { user_id, email, password } = req.body;
 
     if (!(user_id || email) || !password) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse("Login credential are missing.", "FAILED", 0)
-        );
+      throw new AppError(`Login Credentials missing`, 400);
     }
 
     let user;
@@ -31,7 +27,7 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
 
     if (!user) {
       throw new AppError(
-        `User data does not exist for User ID: ${user_id}`,
+        `User data does not exist for provided credentials`,
         404
       );
     }

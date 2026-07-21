@@ -1,6 +1,7 @@
 import { prisma } from "@exchange/db";
 import { Request, Response } from "express";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
+import { AppError } from "../helper/error";
 
 const fetchKline = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -11,29 +12,13 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
     const limit = Math.min(parseInt(req.query.limit as string) || 500, 1000);
 
     if (!market || !reqInterval || !startTime || !endTime) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Required data missing in request query.",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Required request parameters missing`, 400);
     }
 
     const [baseAsset, quoteAsset] = market.split("_");
 
     if (!baseAsset || !quoteAsset) {
-      return res
-        .status(400)
-        .send(
-          generateErrorResponse(
-            "Invalid market format. Use BASE_QUOTE.",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Invalid market format. Use BASE_QUOTE`, 400);
     }
 
     let pgInterval = "1 hour";
@@ -75,15 +60,7 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
         `;
 
     if (result.length <= 0) {
-      return res
-        .status(404)
-        .send(
-          generateErrorResponse(
-            "Kline data does not exist for this timeframe.",
-            "FAILED",
-            0
-          )
-        );
+      throw new AppError(`Kline data not found the given timeframe`, 404);
     }
 
     const formattedKlines = result
@@ -108,8 +85,17 @@ const fetchKline = async (req: Request, res: Response): Promise<any> => {
         )
       );
   } catch (error) {
-    console.error("Error fetching klines via Prisma:", error);
-    res.status(500).json({ error: "Failed to fetch klines" });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error fetching klines from database:", error);
+    return res
+      .status((error as { status_code?: number })?.status_code || 500)
+      .send(
+        generateErrorResponse(
+          err.message || "An unexpected error occurred while log out.",
+          "FAILED",
+          0
+        )
+      );
   }
 };
 
