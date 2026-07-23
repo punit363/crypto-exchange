@@ -1,5 +1,5 @@
 {
-  "name": "apex-exchange-monorepo",
+  "name": "apex-cex-monorepo",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -17,6 +17,9 @@
     "dev:api": "npm run dev --workspace=api",
     "dev:engine": "npm run dev --workspace=engine",
     "dev:db": "npm run dev --workspace=db",
+    "generate:db": "npm run generate --workspace=db",
+    "seed:db": "npm run seed --workspace=db",
+    "studio:db": "npm run studio --workspace=db",
     "dev:sockets": "npm run dev --workspace=sockets",
     "dev:marketmaker": "npm run dev --workspace=marketmaker",
     "db:push": "npm run db:push --workspace=db",
